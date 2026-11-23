@@ -79,6 +79,34 @@ class PolicyTests(unittest.TestCase):
             loaded, _ = load_policy(path, os.environ['AUTOPICKER_DP_UPSTREAM'], 'cpu')
             self.assertEqual(loaded.scheduler.config.clip_sample_range, .5)
 
+    def test_training_selection_and_checkpoint_preserve_physical_action_mapping(self):
+        import numpy as np
+        import torch
+        from autopicker_dp.dataset import LoadedDataset, Normalizer
+        from autopicker_dp.train import training_normalizer, save_checkpoint, load_policy
+        data = {'obs': np.arange(45).reshape(3, 15).astype(np.float32),
+                'action': np.array([[.1] * 4, [.3] * 4, [.8] * 4], np.float32)}
+        original = Normalizer.fit(data, [2, 3], [0])
+        dataset = LoadedDataset(data, [2, 3], {'source_configuration': {
+            'joint_lower': [0.] * 4, 'joint_upper': [1.] * 4}}, original)
+        physical = training_normalizer(dataset, [0], 'physical')
+        self.assertEqual(physical.to_dict()['fields']['obs'], original.to_dict()['fields']['obs'])
+        self.assertEqual(training_normalizer(dataset, [0], 'data').to_dict(), original.to_dict())
+        with self.assertRaises(ValueError):
+            training_normalizer(dataset, [0], 'invalid')
+        policy = self.policy().eval()
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'checkpoint.pt'
+            save_checkpoint(path, policy, policy, torch.optim.AdamW(policy.parameters()),
+                            {'normalizer': physical.to_dict(), 'action_normalization': 'physical'})
+            loaded, metadata = load_policy(path, os.environ['AUTOPICKER_DP_UPSTREAM'], 'cpu')
+            restored = Normalizer.from_dict(metadata['normalizer'])
+            observation = torch.zeros(1, 2, 15)
+            actual = restored.denormalize(loaded.predict(observation, 11).detach().numpy(), key='action')
+            expected = physical.denormalize(policy.predict(observation, 11).detach().numpy(), key='action')
+            np.testing.assert_array_equal(actual, expected)
+            self.assertTrue(np.all((actual >= 0) & (actual <= 1)))
+
 
 if __name__ == '__main__':
     unittest.main()

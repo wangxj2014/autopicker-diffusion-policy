@@ -118,6 +118,31 @@ AUTOPICKER_DP_UPSTREAM=work/diffusion_policy_upstream work/autopicker_train_env/
 
 普通 Python 可运行数据/控制接口测试；Zarr、PyTorch 测试会在缺依赖时跳过，完整检查应使用上述训练环境。实测结果和下一步问题见 [M1 实验报告](../docs/research/2026-11-23-m1-validation.md)。
 
+## M2：动作范围对照与恢复示范
+
+`--action-normalization data` 保留 M1 的示范 min/max（也是默认值）；`physical` 使用数据清单中的实际关节上下限。两者观测归一化都只拟合所选训练回合。物理范围版本在 checkpoint 中保存独立动作变换，不改写原始数据集的 normalizer。保持 DDIM clipping 时，物理范围允许模型输出示范包络外的合法关节命令，但不保证精度或闭环稳定性。
+
+等预算训练与离线诊断：
+
+```bash
+work/autopicker_train_env/bin/python research/autopicker_dp/train.py --dataset datasets/autopicker/lowdim_v2 --upstream work/diffusion_policy_upstream --output runs/autopicker/m2_train_physical_v1 --split train --action-normalization physical --steps 3000 --batch-size 64 --seed 0
+work/autopicker_train_env/bin/python research/autopicker_dp/evaluate.py --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m2_train_physical_v1/checkpoint.pt --upstream work/diffusion_policy_upstream --output runs/autopicker/m2_train_physical_v1/offline.json
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode policy --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m2_train_physical_v1/checkpoint.pt --inference-python work/autopicker_train_env/bin/python --upstream work/diffusion_policy_upstream --output runs/autopicker/m2_policy_val_physical_v1 --split val --seed 0 --timeout 35 --headless
+```
+
+全量拟合对照将训练改为 `--split all-pilot`，输出为 `m2_overfit_physical_v1`；闭环使用该 checkpoint、`--split all-pilot --max-episodes 5`，输出为 `m2_policy_overfit_physical_v1`。其余参数相同。结果见 [M2 实验报告](../docs/research/2026-11-23-m2-validation.md)。
+
+恢复采集仅选择原始 **train** 的三个目标，每个目标取首次成功示范中 capture 前 0.5 s 的实测关节状态，分别施加正负 `[3°, 25 mm, 20 mm, 5°]` 偏移。初始速度归零后物理稳定，再由专家完成接近、采摘和放果。越限扰动被拒绝并保存失败记录，后续回合继续；不会偷偷裁剪或加入留出目标。
+
+```bash
+/path/to/isaac-sim/python.sh research/autopicker_dp/recovery.py --dataset datasets/autopicker/lowdim_v2 --output datasets/autopicker/m2_recovery_raw_v1 --timeout 35 --headless
+work/autopicker_train_env/bin/python research/autopicker_dp/dataset.py --input datasets/autopicker/m2_recovery_raw_v1 --output datasets/autopicker/m2_recovery_lowdim_v1 --split-counts 3 0 0
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode converted-replay --dataset datasets/autopicker/m2_recovery_lowdim_v1 --output runs/autopicker/m2_recovery_replay_v1 --split train --timeout 35 --headless
+work/autopicker_train_env/bin/python research/tests/validate_m2.py --include-recovery --output work/m2-recheck.json
+```
+
+只有全部采集成功才执行此处的转换和回放；失败回合保留在原始目录中，转换器会拒绝包含失败的目录。`AUTOPICKER_RECOVERY_COMPLETE` 表示所有请求已处理，不表示全部成功。静态扰动恢复数据没有注入运动中扰动，也不是 DAgger；本轮归一化对照不混入这批新数据，避免同时改变两个实验因素。
+
 ## 范围与下一步
 
 这些是固定场景、单臂、真值输入和视觉吸附条件下的工程验证。即使拟合成功，也仍需要更多独立目标/场景、扰动示范、多个训练种子、基线及视觉感知实验，才能支持论文结论。

@@ -38,14 +38,27 @@ def load_policy(path, upstream, device):
     return policy, checkpoint['metadata']
 
 
+def training_normalizer(dataset, indices, action_normalization):
+    from autopicker_dp.dataset import Normalizer
+    normalizer = Normalizer.fit(dataset.data, dataset.episode_ends, indices)
+    if action_normalization == 'physical':
+        configuration = dataset.manifest['source_configuration']
+        return normalizer.with_action_limits(configuration['joint_lower'], configuration['joint_upper'])
+    if action_normalization != 'data':
+        raise ValueError('Unknown action normalization')
+    return normalizer
+
+
 def main():
-    from autopicker_dp.dataset import load_dataset, SequenceDataset, Normalizer
+    from autopicker_dp.dataset import load_dataset, SequenceDataset
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dataset', type=Path, required=True)
     parser.add_argument('--upstream', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--split', choices=('train', 'all-pilot'), default='train')
+    parser.add_argument('--action-normalization', choices=('data', 'physical'), default='data',
+                        help='Action affine bounds: selected data extrema or physical joint limits')
     parser.add_argument('--steps', type=int, default=3000)
     parser.add_argument('--batch-size', type=int, default=64)
     parser.add_argument('--seed', type=int, default=0)
@@ -56,7 +69,7 @@ def main():
         parser.error('Require positive training budget and learning rate below one')
     dataset = load_dataset(options.dataset)
     indices = dataset.episode_indices('train') if options.split == 'train' else list(range(len(dataset.episode_ends)))
-    normalizer = dataset.normalizer if options.split == 'train' else Normalizer.fit(dataset.data, dataset.episode_ends, indices)
+    normalizer = training_normalizer(dataset, indices, options.action_normalization)
     sequences = SequenceDataset(dataset.data, dataset.episode_ends, indices)
     batches = [normalizer.normalize(sequences[index]) for index in range(len(sequences))]
     tensors = {key: torch.as_tensor(np.stack([item[key] for item in batches]), device=options.device)
@@ -75,7 +88,8 @@ def main():
                 else 'target-grouped train-only fitting; pilot-sized split',
                 'split': options.split, 'seed': options.seed, 'steps': options.steps,
                 'batch_size': options.batch_size, 'learning_rate': options.learning_rate,
-                'normalizer': normalizer.to_dict(), 'dt': dataset.manifest['dt'],
+                'normalizer': normalizer.to_dict(), 'action_normalization': options.action_normalization,
+                'dt': dataset.manifest['dt'],
                 'dataset_manifest': dataset.manifest,
                 'dataset_sha256': hashlib.sha256((options.dataset / 'manifest.json').read_bytes()).hexdigest(),
                 'git_revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),

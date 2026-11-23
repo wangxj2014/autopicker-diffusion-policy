@@ -159,6 +159,29 @@ class Normalizer:
                             'constant_dimensions': 'scale=1, bias=-training_min',
                             'clip': False})
 
+    def with_action_limits(self, lower, upper):
+        """Copy this normalizer, mapping physical action limits to [-1, 1].
+
+        Observation statistics retain their selected-episode provenance. The
+        fitted action range must lie within these limits (float32 tolerance).
+        """
+        from copy import deepcopy
+        lower, upper = np.asarray(lower, dtype=np.float64), np.asarray(upper, dtype=np.float64)
+        action = self.fields['action']
+        if (lower.shape != action['min'].shape or upper.shape != lower.shape
+                or not np.isfinite(lower).all() or not np.isfinite(upper).all()
+                or np.any(upper <= lower)
+                or np.any(action['min'] < lower - 1e-7) or np.any(action['max'] > upper + 1e-7)):
+            raise ValueError('Invalid physical action limits or fitted actions outside limits')
+        fields = deepcopy(self.fields)
+        scale = 2. / (upper - lower)
+        fields['action'] = {'min': lower.copy(), 'max': upper.copy(), 'scale': scale,
+                            'bias': -1. - lower * scale, 'constant': np.zeros_like(lower, dtype=bool)}
+        metadata = deepcopy(self.fit_metadata)
+        metadata['action_normalization'] = 'physical_joint_limits'
+        metadata['action_limits_source'] = 'dataset source_configuration joint_lower/joint_upper'
+        return type(self)(fields, metadata)
+
     def _transform(self, data, key, inverse):
         if isinstance(data, dict):
             return {name: self._transform(value, name, inverse) if name in self.fields else value

@@ -184,6 +184,34 @@ class SplitAndNormalizerTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     Normalizer.fit(data, ends, selected)
 
+    def test_physical_action_bounds_preserve_observations_and_allow_unseen_commands(self):
+        from autopicker_dp.dataset import Normalizer
+        data = {'obs': np.array([[2., 5.], [4., 5.], [100., 7.]]),
+                'action': np.array([[.12, -.4], [.4, -.1], [.08, -.5]])}
+        fitted = Normalizer.fit(data, [2, 3], [0])
+        before = json.loads(json.dumps(fitted.to_dict()))
+        physical = fitted.with_action_limits([0., -.54], [1.2, 0.])
+        self.assertEqual(fitted.to_dict(), before)
+        np.testing.assert_array_equal(physical.normalize(data['obs'], key='obs'),
+                                      fitted.normalize(data['obs'], key='obs'))
+        np.testing.assert_allclose(physical.normalize([[0., -.54], [1.2, 0.]], key='action'),
+                                   [[-1., -1.], [1., 1.]], atol=1e-7)
+        self.assertTrue(np.all(np.abs(physical.normalize(data['action'][2], key='action')) < 1))
+        restored = Normalizer.from_dict(json.loads(json.dumps(physical.to_dict())))
+        np.testing.assert_allclose(restored.denormalize(restored.normalize(data['action'], key='action'),
+                                                        key='action'), data['action'], atol=1e-7)
+        self.assertEqual(restored.fit_metadata['episode_indices'], [0])
+        self.assertEqual(restored.fit_metadata['action_normalization'], 'physical_joint_limits')
+
+    def test_physical_action_bounds_reject_invalid_or_inconsistent_limits(self):
+        from autopicker_dp.dataset import Normalizer
+        fitted = Normalizer.fit({'obs': np.ones((2, 2)), 'action': np.array([[.1], [.4]])}, [2], [0])
+        for lower, upper in (([0, 0], [1, 1]), ([0], [0]), ([1], [0]),
+                             ([float('nan')], [1]), ([0], [float('inf')]),
+                             ([.2], [1]), ([0], [.3])):
+            with self.subTest(lower=lower, upper=upper), self.assertRaises(ValueError):
+                fitted.with_action_limits(lower, upper)
+
 
 class SequenceTests(unittest.TestCase):
     def data(self):
