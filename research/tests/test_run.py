@@ -13,6 +13,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 class FailurePersistenceTests(unittest.TestCase):
+    def test_post_collect_records_actual_physics_without_new_expert_commands(self):
+        from autopicker_dp.run import record_post_collect
+        command = np.array([.1, .2, .3, .4])
+        env = SimpleNamespace(dt=.01, steps=15, success=True,
+                              executor=SimpleNamespace(position=command.copy()), update_task=Mock())
+        requested = []
+        def step(value):
+            requested.append(value.copy())
+            env.steps += 1
+        env.step = step
+        record_post_collect(env, .2, None, 10)
+        self.assertEqual(env.steps, 35)
+        np.testing.assert_array_equal(requested, np.tile(command, (20, 1)))
+        with self.assertRaises(ValueError):
+            record_post_collect(env, .205, None, 10)
+
     def test_invalid_terminal_measurement_still_writes_failure_record(self):
         from autopicker_dp.episode import Episode
         from autopicker_dp.run import finish_episode

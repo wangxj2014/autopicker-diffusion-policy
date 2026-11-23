@@ -26,12 +26,29 @@ def repository_revision():
     return revision, dirty
 
 
-def run_episode(environment, directory, camera, sample_dt, timeout_s, source=None, replay_dt=.1):
+def record_post_collect(env, duration, camera, sample_steps):
+    steps = round(duration / env.dt)
+    if not np.isfinite(duration) or duration < 0 or abs(steps * env.dt - duration) > 1e-8:
+        raise ValueError('Post-collect hold must be a nonnegative multiple of physics_dt')
+    if not env.success:
+        raise ValueError('Post-collect recording requires a collected target')
+    command = env.executor.position.copy()
+    for _ in range(steps):
+        env.step(command)
+        env.update_task()
+        if camera is not None and env.steps % sample_steps == 0:
+            camera.capture()
+
+
+def run_episode(environment, directory, camera, sample_dt, timeout_s, source=None, replay_dt=.1,
+                action_provider=None, metadata_extra=None, post_collect_hold=0.):
     from autopicker_dp.environment import ExpertPlanner
     from pxr import UsdGeom
     from isaacsim.core.version import get_version
 
     env = environment
+    if source is not None and action_provider is not None:
+        raise ValueError('Source replay and external policy are mutually exclusive')
     revision, dirty = repository_revision()
     metadata = {'arm': env.arm_name, 'target_path': env.entry['path'], 'physics_dt': env.dt,
                 'joint_names': env.arm['chain'].names, 'joint_units': ['rad', 'm', 'm', 'rad'],
@@ -46,16 +63,19 @@ def run_episode(environment, directory, camera, sample_dt, timeout_s, source=Non
                 'action_semantics': '480Hz applied position and derived velocity targets',
                 'read_phase': 'before command and next physics step; last row is terminal state',
                 'mode': 'replay' if source else 'expert', 'executor': 'bounded_position_v1',
-                'replay_dt': replay_dt if source else None}
+                'replay_dt': replay_dt if source else None,
+                'post_collect_hold_s': post_collect_hold}
     metadata['source_sha256'] = SOURCE_HASHES
     metadata['controller_config'] = env.demo.config
     metadata['world_from_base'] = np.array(UsdGeom.Xformable(
         env.stage.GetPrimAtPath('/World/Autopicker')).ComputeLocalToWorldTransform(0)).tolist()
     metadata['transform_convention'] = 'USD row vectors, meters'
     metadata['camera_clock_mapping'] = 'lockstep_render_barrier' if camera is not None else None
+    if metadata_extra:
+        metadata.update(metadata_extra)
     episode = Episode(metadata)
     env.episode = episode
-    planner = None if source else ExpertPlanner(env)
+    planner = None if source is not None or action_provider is not None else ExpertPlanner(env)
     trajectory = None
     if source:
         arrays = source.arrays()
@@ -74,8 +94,12 @@ def run_episode(environment, directory, camera, sample_dt, timeout_s, source=Non
             if camera is not None and env.steps % sample_steps == 0:
                 camera.capture()
             if env.success:
+                if post_collect_hold:
+                    record_post_collect(env, post_collect_hold, camera, sample_steps)
                 break
-            if trajectory is None:
+            if action_provider is not None:
+                requested = action_provider.command(env)
+            elif trajectory is None:
                 requested = planner.command()
             else:
                 requested = trajectory.at(min(env.time, trajectory.times[-1]))
@@ -85,7 +109,7 @@ def run_episode(environment, directory, camera, sample_dt, timeout_s, source=Non
             if time.monotonic() >= next_progress:
                 distance = float(np.linalg.norm(env.tip_pose()[:3, 3] - env.entry['world']))
                 print(f'EPISODE_PROGRESS mode={episode.metadata["mode"]} t={env.time:.2f}s '
-                      f'phase={env.phase} planner={planner.phase if planner else "replay"} '
+                      f'phase={env.phase} planner={planner.phase if planner else episode.metadata["mode"]} '
                       f'target_distance={distance:.5f}m frames={len(episode.frames)}', flush=True)
                 next_progress = time.monotonic() + 15.
         if not env.success:
@@ -94,6 +118,8 @@ def run_episode(environment, directory, camera, sample_dt, timeout_s, source=Non
         failure = str(error)
         print('EPISODE_FAILURE ' + failure, flush=True)
         episode.event('failure', env.time, reason=failure)
+    if action_provider is not None:
+        episode.metadata['inference_requests'] = action_provider.requests
     return finish_episode(env, directory, failure, started)
 
 
@@ -136,6 +162,8 @@ def main():
     parser.add_argument('--sample-dt', type=float, default=.1)
     parser.add_argument('--replay-dt', type=float, default=.1)
     parser.add_argument('--timeout', type=float, default=90.)
+    parser.add_argument('--post-collect-hold', type=float, default=.2,
+                        help='Collect only: record actual held-command physics after collect')
     parser.add_argument('--no-rgbd', action='store_true')
     parser.add_argument('--headless', action='store_true')
     options = parser.parse_args()
@@ -146,6 +174,8 @@ def main():
     if not 0 < options.speed_scale <= 45 or any(not np.isfinite(value) or value <= 0 for value in
                                                (options.sample_dt, options.replay_dt, options.timeout)):
         parser.error('Require finite positive time intervals and speed-scale in (0, 45]')
+    if not np.isfinite(options.post_collect_hold) or options.post_collect_hold < 0:
+        parser.error('Require finite nonnegative post-collect-hold')
     if options.mode == 'audit':
         paths = sorted(options.input.glob('episode_*/episode.json'))
         if (options.input / 'episode.json').exists():
@@ -190,7 +220,8 @@ def main():
             environment.reset(targets[index % len(targets)],
                               source.metadata['reset_joint_positions'] if source else None)
             result = run_episode(environment, options.output / f'episode_{index:04d}', camera,
-                                 options.sample_dt, options.timeout, source, options.replay_dt)
+                                 options.sample_dt, options.timeout, source, options.replay_dt,
+                                 post_collect_hold=options.post_collect_hold if source is None else 0.)
             results.append(result)
             if not result['success']:
                 break

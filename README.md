@@ -2,9 +2,9 @@
 
 基于 **NVIDIA Isaac Sim 5.1** 的四机械臂苹果采摘仿真项目，包含双侧二维果墙、自动采摘、RGB-D 相机、彩色点云配准与果树表面累积重建。
 
-当前版本提供仿真场景和基于几何规划的控制基线，尚未包含 Diffusion Policy 网络、训练流程或学习策略推理。
+当前版本提供仿真场景和基于几何规划的控制基线，研究分支另含低维 Diffusion Policy 训练与仿真评估入口。
 
-Diffusion Policy 研究在 `research/diffusion-policy` 分支开展：已增加独立的单臂示范采集、RGB-D 锁步录制、命令回放和数据审计入口，操作见[研究工具说明](research/README.md)。研究路线与未来训练接口分别见[研究方案](docs/research/2026-11-22-diffusion-policy.md)和[数据契约](docs/research/autopicker-dataset-contract.md)。当前仍未实现策略网络、训练或策略推理。
+Diffusion Policy 研究在 `research/diffusion-policy` 分支开展：支持单臂示范采集、RGB-D 锁步录制、Zarr 数据转换、官方 U-Net 适配训练、checkpoint 重载及独立进程策略推理，操作见[研究工具说明](research/README.md)。研究路线与接口草案分别见[研究方案](docs/research/2026-11-22-diffusion-policy.md)和[数据契约](docs/research/autopicker-dataset-contract.md)。当前实验使用真值低维输入；实际学习结果及限制见 [M1 报告](docs/research/2026-11-23-m1-validation.md)。
 
 ![四路 RGB、四路深度与彩色点云](outputs/autopicker_fusion_windows.png)
 
@@ -51,9 +51,10 @@ work/
   autopicker_rgbd/test_depth.py              深度显示测试
   autopicker_modules/                       模块结构与生命周期测试
 research/
-  README.md                                研究采集与回放使用说明
-  autopicker_dp/                           独立任务环境、记录、执行器及命令入口
-  tests/                                   普通 Python 检查与仿真数据验收
+  README.md                                采集、训练与闭环评估说明
+  autopicker_dp/                            任务环境、Dataset、策略、训练及推理入口
+  requirements-training.txt                独立训练环境依赖
+  tests/                                   数据/控制/训练检查与仿真产物验收
 ```
 
 两个 USD 均包含自身所需的模型和材质，无外部 USD 或贴图依赖。开发运行需要保留 `outputs` 中的场景及全部 Python 文件；单文件演示仅需复制 `outputs/dist/autopicker_apple_orchard_demo.usd`。

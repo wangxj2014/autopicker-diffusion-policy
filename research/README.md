@@ -1,6 +1,6 @@
-# Autopicker 单臂示范采集与回放
+# Autopicker 单臂示范、Diffusion Policy 训练与评估
 
-这是研究入口。它使用开发版场景和现有几何模型，运行单臂专家或预录命令回放；普通演示仍通过 `outputs/autopicker_start.py` 启动。这里尚无 Diffusion Policy 网络或训练命令。
+这是研究入口。它使用开发版场景和现有几何模型，提供单臂专家、命令回放、低维 Diffusion Policy 训练和真实仿真闭环评估。普通演示仍通过 `outputs/autopicker_start.py` 启动。
 
 M0 已通过十回合录制与十回合同目标回放，覆盖五个目标；实测指标及限制见[验收报告](../docs/research/2026-11-23-m0-validation.md)。
 
@@ -52,8 +52,74 @@ Isaac 的 Writer `reference_time` 在这里属于渲染时钟，实测不等于 
 
 采集与回放均通过同一个执行器写关节位置和速度目标。研究进程不启动普通演示控制器的物理订阅。专家使用既有 FK/IK 生成几何轨迹；回放仅消费保存的命令，重置过程中的接果位置初始化仍复用现有模型。
 
+## M1：准备低维训练数据
+
+M1 使用苹果/接果位置和附着状态的真值，尚未使用图像学习。先在收果后额外记录 0.2 s 的真实物理状态，确保取整到 10 Hz 时保留最后的放果命令。`--post-collect-hold` 默认 0.2，只用于研究采集；普通演示不增加停留。原来的 `pilot_rgbd_v2` 仍用于 M0 验收，但末尾记录不足，不能直接作为当前训练数据。
+
+```bash
+/path/to/isaac-sim/python.sh research/autopicker_dp/run.py collect --output datasets/autopicker/pilot_lowdim_tail_v1 --episodes 10 --targets 5 --speed-scale 3 --post-collect-hold .2 --timeout 35 --no-rgbd --headless
+```
+
+此轮用 `--no-rgbd` 加快低维接口验证；视觉策略采集时去掉它。不要改写历史输出目录。
+
+训练使用独立 Python 3.10 环境，Isaac 继续使用自带 Python 3.11。已验证 PyTorch 2.7.0+cu126、NumPy 2.2.6；其余固定版本见 `requirements-training.txt`。示例新环境安装方式：
+
+```bash
+python3.10 -m venv work/autopicker_train_env
+work/autopicker_train_env/bin/python -m pip install -r research/requirements-training.txt
+git clone https://github.com/real-stanford/diffusion_policy.git work/diffusion_policy_upstream
+git -C work/diffusion_policy_upstream checkout --detach 5ba07ac6661db573af695b419a7947ecb704690f
+work/autopicker_train_env/bin/python research/autopicker_dp/dataset.py --input datasets/autopicker/pilot_lowdim_tail_v1 --output datasets/autopicker/lowdim_v2
+```
+
+本机复用了已有 `mj310` 环境中的 CUDA PyTorch，通过 `venv --system-site-packages` 建立训练环境，仅把补充依赖安装到 venv。命令启动时直接调用该 venv 的 Python，无需切换 Isaac 环境。
+
+转换器审计原始回合、重置状态、控制配置及文件 SHA256。导出 `data.zarr`、`manifest.json`、`normalizer.json` 和完整校验清单。五个目标按路径排序分成 3/1/1 个目标组，对应 6/2/2 回合；同一目标的重复回合不会跨组。这只是小样本接口试验，不能用来证明泛化。
+
+- 输入 15 维：关节位置 4、速度 4、基座坐标系下的目标位置 3、接果位置 3、附着状态 1。坐标使用 USD 行向量逆变换；不输入阶段、时间或目标编号。
+- 在 `t` 观察，标签是 `t+0.1 s` 实际下发的绝对关节位置命令。只保留完整间隔，末尾状态另存元数据；若取整丢掉 collect 命令则拒绝转换。
+- 两个观测间隔 0.1 s，预测长度 16，每次执行预测索引 `[1:3]` 两个动作节点，0.2 s 重新规划。边界复制带有效掩码，窗口不跨回合。
+- 常规训练的归一化仅拟合 train；不裁剪观测。动作经扩散模型输出、反归一化和限位检查后，由原有执行器在 480 Hz 下执行。
+
+## 训练、checkpoint 和离线诊断
+
+```bash
+work/autopicker_train_env/bin/python research/autopicker_dp/train.py --dataset datasets/autopicker/lowdim_v2 --upstream work/diffusion_policy_upstream --output runs/autopicker/m1_train_v2 --split train --steps 3000 --batch-size 64 --seed 0
+work/autopicker_train_env/bin/python research/autopicker_dp/evaluate.py --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m1_train_v2/checkpoint.pt --upstream work/diffusion_policy_upstream --output runs/autopicker/m1_train_v2/offline.json
+```
+
+代码直接导入官方仓库的 `ConditionalUnet1D` 并核对 commit 与源码状态。此处采用较小网络（通道 64/128/256，扩散嵌入 64）、全局观测条件、100 步 cosine epsilon 训练、20 步 DDIM 推理和 EMA；这是针对本项目的适配，不是官方基准的原样复现。
+
+checkpoint 保存模型、EMA、优化器、配置、scheduler、归一化、随机种子/torch RNG、数据和源码散列、依赖版本。训练结束后重新加载 EMA，并核对固定种子输出完全相同；须看到 `AUTOPICKER_TRAIN_AND_RELOAD_PASS`。当前没有断点续训 CLI。
+
+可用不同输出目录加 `--split all-pilot` 做全十回合拟合诊断，例如 `runs/autopicker/m1_overfit_v2`。该 checkpoint 使用所有目标，相关结果不能称为留出测试。离线评估使用专家观测，报告每个关节各自单位下的 MAE/RMSE，不把米和弧度混成一个指标，也不把它当采摘成功率。
+
+## Isaac 闭环评估
+
+先确认转换后的动作节点可以完成收果：
+
+```bash
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode converted-replay --dataset datasets/autopicker/lowdim_v2 --output runs/autopicker/m1_converted_replay_v3 --split all-pilot --timeout 35 --headless
+```
+
+再运行训练策略：
+
+```bash
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode policy --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m1_train_v2/checkpoint.pt --inference-python work/autopicker_train_env/bin/python --upstream work/diffusion_policy_upstream --output runs/autopicker/m1_policy_val_v2 --split val --seed 0 --timeout 35 --headless
+```
+
+`--split` 选择初始目标/状态；`--max-episodes` 可限制评估数量。推理在独立 Python 进程中运行，以隔离 Isaac 的 Python 环境。仿真等待推理时不推进时间；每次消息检查回合编号、时间和请求编号。每回合保存完整物理状态、推理观测/动作/延迟和真实 capture/collect 事件；策略动作不调用专家 IK。重置时仍复用原模型初始化。
+
+必须同时检查 `AUTOPICKER_ROLLOUT_COMPLETE` 和 `summary.json` 的 `completed/requested/attempted/successes`。COMPLETE 表示评估跑完，**不代表全部成功**；超时、非法动作或数据审计失败都保留在分母中。成功仍需满足 3 mm/1° 抓取阈值并到达接果装置，没有放宽阈值。
+
+```bash
+AUTOPICKER_DP_UPSTREAM=work/diffusion_policy_upstream work/autopicker_train_env/bin/python -m unittest discover -s research/tests -v
+```
+
+普通 Python 可运行数据/控制接口测试；Zarr、PyTorch 测试会在缺依赖时跳过，完整检查应使用上述训练环境。实测结果和下一步问题见 [M1 实验报告](../docs/research/2026-11-23-m1-validation.md)。
+
 ## 范围与下一步
 
-这些是使用苹果真值和视觉吸附的确定性专家示范，属于接口验收数据，不是论文中的学习成功率或泛化结果。原始 NPZ 也尚未转换为研究草案中的 10 Hz Zarr 训练样本；下一阶段需要按目标/场景划分数据、明确动作对齐、适配 Dataset，再训练和评估低维 Diffusion Policy。
+这些是固定场景、单臂、真值输入和视觉吸附条件下的工程验证。即使拟合成功，也仍需要更多独立目标/场景、扰动示范、多个训练种子、基线及视觉感知实验，才能支持论文结论。
 
 数据集、日志、模型和训练输出被 Git 忽略，GitHub 只保存代码、说明与小型验收报告。复制数据时应保留 `episode.json` 及全部 NPZ 文件。
