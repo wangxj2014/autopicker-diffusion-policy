@@ -49,11 +49,30 @@ def training_normalizer(dataset, indices, action_normalization):
     return normalizer
 
 
+def training_inputs(dataset, dataset_hash, split, action_normalization, recovery_path=None):
+    from autopicker_dp.dataset import SequenceDataset
+    if split not in ('train', 'all-pilot'):
+        raise ValueError('Unknown training split')
+    if recovery_path is not None and (split != 'train' or action_normalization != 'physical'):
+        raise ValueError('Recovery augmentation requires train split and physical action normalization')
+    indices = dataset.episode_indices('train') if split == 'train' else list(range(len(dataset.episode_ends)))
+    normalizer = training_normalizer(dataset, indices, action_normalization)
+    augmentation = None
+    if recovery_path is not None:
+        from autopicker_dp.augmentation import recovery_sequences
+        sequences, augmentation = recovery_sequences(dataset, dataset_hash, recovery_path)
+    else:
+        sequences = SequenceDataset(dataset.data, dataset.episode_ends, indices)
+    return normalizer, sequences, augmentation
+
+
 def main():
-    from autopicker_dp.dataset import load_dataset, SequenceDataset
+    from autopicker_dp.dataset import load_dataset
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dataset', type=Path, required=True)
+    parser.add_argument('--recovery-dataset', type=Path,
+                        help='Append audited recovery windows; requires train split and physical normalization')
     parser.add_argument('--upstream', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--split', choices=('train', 'all-pilot'), default='train')
@@ -68,9 +87,9 @@ def main():
     if options.steps < 1 or options.batch_size < 1 or not 0 < options.learning_rate < 1:
         parser.error('Require positive training budget and learning rate below one')
     dataset = load_dataset(options.dataset)
-    indices = dataset.episode_indices('train') if options.split == 'train' else list(range(len(dataset.episode_ends)))
-    normalizer = training_normalizer(dataset, indices, options.action_normalization)
-    sequences = SequenceDataset(dataset.data, dataset.episode_ends, indices)
+    dataset_hash = hashlib.sha256((options.dataset / 'manifest.json').read_bytes()).hexdigest()
+    normalizer, sequences, augmentation = training_inputs(
+        dataset, dataset_hash, options.split, options.action_normalization, options.recovery_dataset)
     batches = [normalizer.normalize(sequences[index]) for index in range(len(sequences))]
     tensors = {key: torch.as_tensor(np.stack([item[key] for item in batches]), device=options.device)
                for key in ('obs', 'action', 'valid_mask')}
@@ -91,7 +110,7 @@ def main():
                 'normalizer': normalizer.to_dict(), 'action_normalization': options.action_normalization,
                 'dt': dataset.manifest['dt'],
                 'dataset_manifest': dataset.manifest,
-                'dataset_sha256': hashlib.sha256((options.dataset / 'manifest.json').read_bytes()).hexdigest(),
+                'dataset_sha256': dataset_hash,
                 'git_revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                 'git_dirty': bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip()),
                 'source_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
@@ -101,6 +120,8 @@ def main():
                              'python': sys.version, 'cuda': torch.version.cuda},
                 'scheduler': dict(policy.scheduler.config), 'ema_decay': .995,
                 'optimizer': 'AdamW', 'training_windows': len(sequences)}
+    if augmentation is not None:
+        metadata['recovery_augmentation'] = augmentation
     started = time.monotonic()
     losses = []
     with (options.output / 'metrics.jsonl').open('w', encoding='utf-8') as stream:

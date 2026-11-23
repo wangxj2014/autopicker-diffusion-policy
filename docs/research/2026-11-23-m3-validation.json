@@ -1,0 +1,1338 @@
+{
+  "schema": "autopicker-m3-report-v1",
+  "dataset_sha256": "f7d96a5015010969051af29532cbc0d2203b0cc852703fb0b5dec0a43c704fd5",
+  "scope": "one seed, three seen targets, one validation target repeated twice; oracle fixed scene",
+  "baseline_training": {
+    "split": "train",
+    "seed": 0,
+    "steps": 3000,
+    "batch_size": 64,
+    "learning_rate": 0.0001,
+    "initial_loss_mean": 0.7566978910565376,
+    "final_loss_mean": 0.00986418318003416,
+    "checkpoint_sha256": "26031d4e8625e715f38c4159187d405d2cfb906dc63e6d09bc75f2afc379b83d",
+    "checkpoint_reload_max_error": 0.0,
+    "wall_time_s": 32.781723981999676,
+    "training_windows": 820,
+    "model_config": {
+      "down_dims": [
+        64,
+        128,
+        256
+      ],
+      "diffusion_step_embed_dim": 64,
+      "horizon": 16,
+      "n_obs_steps": 2,
+      "n_action_steps": 2,
+      "inference_steps": 20
+    },
+    "scheduler": {
+      "num_train_timesteps": 100,
+      "beta_start": 0.0001,
+      "beta_end": 0.02,
+      "beta_schedule": "squaredcos_cap_v2",
+      "trained_betas": null,
+      "clip_sample": true,
+      "set_alpha_to_one": true,
+      "steps_offset": 0,
+      "prediction_type": "epsilon",
+      "thresholding": false,
+      "dynamic_thresholding_ratio": 0.995,
+      "clip_sample_range": 1.0,
+      "sample_max_value": 1.0,
+      "timestep_spacing": "leading",
+      "rescale_betas_zero_snr": false,
+      "_use_default_values": [
+        "clip_sample_range",
+        "timestep_spacing",
+        "trained_betas",
+        "beta_start",
+        "thresholding",
+        "rescale_betas_zero_snr",
+        "beta_end",
+        "dynamic_thresholding_ratio",
+        "sample_max_value"
+      ]
+    },
+    "source_sha256": {
+      "episode.py": "bd6b8021732773f92e1188bbacff466b26516c9361c6dae814ddb88d45bc0141",
+      "rollout.py": "3fd335d2007fc830c36f5ea789da176da84916033bc372722f0aadd09f5caedb",
+      "capture.py": "249c941e473257049dc37b2ba2e65c8e05a6ac670b51d3b13712fd8561d0843e",
+      "__init__.py": "d5f34639181df146853f363bfea7ab523c178042f42ab7a6a914796c98d52599",
+      "serve.py": "cdb7f95af0d38c47119ea9d6a17895ed5626786daab83e4d6b202fa3c94d2023",
+      "dataset.py": "d0504c6b13fd6f13a142b3b33202a234443326bad3bebfe645af1629a632d0b7",
+      "evaluate.py": "cfc6161a920345b4e82205eb46836721feb6152ff5486fcf9fc44559b779b3f8",
+      "inference.py": "462683c90d543c65dcbd5602a0894b9aec88cd5a3ef6c2e8c96a2048f314aa2b",
+      "run.py": "1bd7b4c6057424ca16f72d9043a0091fe1e66402920fe2c975cfc8d05077a23b",
+      "policy.py": "e552ac3ae971771372359fed4b2bb5d1b06ef776f07822a7f3a2a5f8fda53e30",
+      "control.py": "cf8f8c0b95ca88aff69011ffde4575222f37976f23a1c476810f35ccdc81bd87",
+      "environment.py": "a57d513e09109f24258d0d869bebf2e90f122cd3832592da67558a713a636966",
+      "train.py": "556b9621fd32d420359cc51a64f430a15c2f2e0dfdbecf07178b7436e31d9ede"
+    },
+    "offline": {
+      "scope": "teacher-forced oracle observations; not task success or generalization evidence",
+      "training_split": "train",
+      "seed": 0,
+      "dataset_sha256": "f7d96a5015010969051af29532cbc0d2203b0cc852703fb0b5dec0a43c704fd5",
+      "checkpoint_sha256": "26031d4e8625e715f38c4159187d405d2cfb906dc63e6d09bc75f2afc379b83d",
+      "joint_names": [
+        "R_down_roll_joint",
+        "R_down_hor_joint",
+        "R_down_ver_joint",
+        "R_down_rot_joint"
+      ],
+      "joint_units": [
+        "rad",
+        "m",
+        "m",
+        "rad"
+      ],
+      "splits": {
+        "train": {
+          "valid_action_nodes": 1634,
+          "mae_by_joint": [
+            0.014429036527872086,
+            0.007193434983491898,
+            0.005930838640779257,
+            0.03026542253792286
+          ],
+          "rmse_by_joint": [
+            0.02068442478775978,
+            0.011608311906456947,
+            0.008428210392594337,
+            0.04770829528570175
+          ],
+          "max_abs_error_by_joint": [
+            0.11460006237030029,
+            0.1086677610874176,
+            0.06449396163225174,
+            0.4801235795021057
+          ],
+          "out_of_limits_nodes": 0
+        },
+        "val": {
+          "valid_action_nodes": 554,
+          "mae_by_joint": [
+            0.030837038531899452,
+            0.07100159674882889,
+            0.032719265669584274,
+            0.12362895160913467
+          ],
+          "rmse_by_joint": [
+            0.03949583321809769,
+            0.07420604676008224,
+            0.03608902171254158,
+            0.1414594054222107
+          ],
+          "max_abs_error_by_joint": [
+            0.17649197578430176,
+            0.18418927490711212,
+            0.09367838501930237,
+            0.5491997599601746
+          ],
+          "out_of_limits_nodes": 0
+        },
+        "test": {
+          "valid_action_nodes": 454,
+          "mae_by_joint": [
+            0.1754998415708542,
+            0.11958394199609756,
+            0.06364456564188004,
+            0.2649504244327545
+          ],
+          "rmse_by_joint": [
+            0.18182675540447235,
+            0.12234063446521759,
+            0.07209547609090805,
+            0.31195348501205444
+          ],
+          "max_abs_error_by_joint": [
+            0.4672550857067108,
+            0.2004421204328537,
+            0.14569322764873505,
+            0.9268811941146851
+          ],
+          "out_of_limits_nodes": 0
+        }
+      }
+    }
+  },
+  "augmented_training": {
+    "split": "train",
+    "seed": 0,
+    "steps": 3000,
+    "batch_size": 64,
+    "learning_rate": 0.0001,
+    "initial_loss_mean": 0.7568626061081887,
+    "final_loss_mean": 0.010305849751457572,
+    "checkpoint_sha256": "b72e353b8c6f315402c348f4f2230fb785edb2d2bee0772c30ea5e398434800c",
+    "checkpoint_reload_max_error": 0.0,
+    "wall_time_s": 47.475902254001994,
+    "training_windows": 1505,
+    "model_config": {
+      "down_dims": [
+        64,
+        128,
+        256
+      ],
+      "diffusion_step_embed_dim": 64,
+      "horizon": 16,
+      "n_obs_steps": 2,
+      "n_action_steps": 2,
+      "inference_steps": 20
+    },
+    "scheduler": {
+      "num_train_timesteps": 100,
+      "beta_start": 0.0001,
+      "beta_end": 0.02,
+      "beta_schedule": "squaredcos_cap_v2",
+      "trained_betas": null,
+      "clip_sample": true,
+      "set_alpha_to_one": true,
+      "steps_offset": 0,
+      "prediction_type": "epsilon",
+      "thresholding": false,
+      "dynamic_thresholding_ratio": 0.995,
+      "clip_sample_range": 1.0,
+      "sample_max_value": 1.0,
+      "timestep_spacing": "leading",
+      "rescale_betas_zero_snr": false,
+      "_use_default_values": [
+        "clip_sample_range",
+        "sample_max_value",
+        "thresholding",
+        "timestep_spacing",
+        "rescale_betas_zero_snr",
+        "beta_end",
+        "beta_start",
+        "trained_betas",
+        "dynamic_thresholding_ratio"
+      ]
+    },
+    "source_sha256": {
+      "episode.py": "bd6b8021732773f92e1188bbacff466b26516c9361c6dae814ddb88d45bc0141",
+      "rollout.py": "3fd335d2007fc830c36f5ea789da176da84916033bc372722f0aadd09f5caedb",
+      "augmentation.py": "4a2eab3aaa4d4ead00255fb4a3c1ba754eff0c591fa316588f10c9d668300fe2",
+      "capture.py": "249c941e473257049dc37b2ba2e65c8e05a6ac670b51d3b13712fd8561d0843e",
+      "__init__.py": "d5f34639181df146853f363bfea7ab523c178042f42ab7a6a914796c98d52599",
+      "serve.py": "cdb7f95af0d38c47119ea9d6a17895ed5626786daab83e4d6b202fa3c94d2023",
+      "dataset.py": "d0504c6b13fd6f13a142b3b33202a234443326bad3bebfe645af1629a632d0b7",
+      "evaluate.py": "cfc6161a920345b4e82205eb46836721feb6152ff5486fcf9fc44559b779b3f8",
+      "inference.py": "462683c90d543c65dcbd5602a0894b9aec88cd5a3ef6c2e8c96a2048f314aa2b",
+      "run.py": "1bd7b4c6057424ca16f72d9043a0091fe1e66402920fe2c975cfc8d05077a23b",
+      "policy.py": "e552ac3ae971771372359fed4b2bb5d1b06ef776f07822a7f3a2a5f8fda53e30",
+      "control.py": "cf8f8c0b95ca88aff69011ffde4575222f37976f23a1c476810f35ccdc81bd87",
+      "recovery.py": "4392e610aa20e4b43507207befdc6b1bef1a2be88a15274b56a6766401ee472d",
+      "environment.py": "a57d513e09109f24258d0d869bebf2e90f122cd3832592da67558a713a636966",
+      "train.py": "35f7dc98664138ecc4ad0b8b78a9ea72a33c93c3796d48bfd00e483c4ef43944"
+    },
+    "offline": {
+      "scope": "teacher-forced oracle observations; not task success or generalization evidence",
+      "training_split": "train",
+      "seed": 0,
+      "dataset_sha256": "f7d96a5015010969051af29532cbc0d2203b0cc852703fb0b5dec0a43c704fd5",
+      "checkpoint_sha256": "b72e353b8c6f315402c348f4f2230fb785edb2d2bee0772c30ea5e398434800c",
+      "joint_names": [
+        "R_down_roll_joint",
+        "R_down_hor_joint",
+        "R_down_ver_joint",
+        "R_down_rot_joint"
+      ],
+      "joint_units": [
+        "rad",
+        "m",
+        "m",
+        "rad"
+      ],
+      "splits": {
+        "train": {
+          "valid_action_nodes": 1634,
+          "mae_by_joint": [
+            0.015277798287570477,
+            0.007421730551868677,
+            0.0062573798932135105,
+            0.030829161405563354
+          ],
+          "rmse_by_joint": [
+            0.02195024862885475,
+            0.012186366133391857,
+            0.008907120674848557,
+            0.05059611424803734
+          ],
+          "max_abs_error_by_joint": [
+            0.14432953298091888,
+            0.1573747843503952,
+            0.06999160349369049,
+            0.6001667976379395
+          ],
+          "out_of_limits_nodes": 0
+        },
+        "val": {
+          "valid_action_nodes": 554,
+          "mae_by_joint": [
+            0.05009542778134346,
+            0.07272670418024063,
+            0.025666702538728714,
+            0.11986163258552551
+          ],
+          "rmse_by_joint": [
+            0.05966692417860031,
+            0.07753375917673111,
+            0.030350537970662117,
+            0.14671356976032257
+          ],
+          "max_abs_error_by_joint": [
+            0.2616172432899475,
+            0.26159244775772095,
+            0.11175394058227539,
+            0.6329469084739685
+          ],
+          "out_of_limits_nodes": 0
+        },
+        "test": {
+          "valid_action_nodes": 454,
+          "mae_by_joint": [
+            0.15814664959907532,
+            0.10317813605070114,
+            0.060787126421928406,
+            0.26167982816696167
+          ],
+          "rmse_by_joint": [
+            0.163462832570076,
+            0.10640702396631241,
+            0.07002996653318405,
+            0.30596983432769775
+          ],
+          "max_abs_error_by_joint": [
+            0.3118484318256378,
+            0.1987457126379013,
+            0.14963825047016144,
+            0.8859685659408569
+          ],
+          "out_of_limits_nodes": 0
+        }
+      }
+    }
+  },
+  "augmentation": {
+    "base_windows": 820,
+    "recovery_windows": 685,
+    "combined_windows": 1505,
+    "recovery_window_fraction": 0.45514950166112955,
+    "sampling": "uniform over combined window anchors",
+    "normalizer_source": "primary dataset train only; frozen before augmentation",
+    "recovery_dataset_sha256": "b08522b9a197b6aba23b9152c05b232a888725d6c4552178817451fec7cad8be",
+    "normalizer": {
+      "fields": {
+        "obs": {
+          "min": [
+            -1.0132191181182861,
+            0.11999999731779099,
+            -0.46527358889579773,
+            -1.4310405254364014,
+            -0.5122365951538086,
+            -2.5257584638893604e-05,
+            -0.17640016973018646,
+            -0.8944075703620911,
+            0.30218204855918884,
+            -0.9604786038398743,
+            0.5401314496994019,
+            0.29940065741539,
+            -0.38132962584495544,
+            0.3464067280292511,
+            0.0
+          ],
+          "max": [
+            0.21804331243038177,
+            0.4115050137042999,
+            -0.0173588115721941,
+            1.5366538763046265,
+            0.3474830687046051,
+            0.19207371771335602,
+            0.14448191225528717,
+            0.882440447807312,
+            0.59090256690979,
+            -0.9360138177871704,
+            0.7618381381034851,
+            0.5909056663513184,
+            -0.3813295066356659,
+            0.3464067280292511,
+            1.0
+          ],
+          "scale": [
+            1.6243490830048082,
+            6.860945395698383,
+            4.465135113314348,
+            0.673923837584719,
+            2.32633971755865,
+            10.411299679748346,
+            6.232819195216205,
+            1.1255886713712855,
+            6.927114191348692,
+            81.75015288061182,
+            9.020927669781411,
+            6.860945571057382,
+            16777216.0,
+            1.0,
+            2.0
+          ],
+          "bias": [
+            0.6458215453983784,
+            -1.8233134290813164,
+            1.0775094390764113,
+            -0.03558767735864776,
+            0.19163633609331576,
+            -0.9997370357171379,
+            0.09947036393370268,
+            0.006735028788285691,
+            -3.093249556945177,
+            77.51927270246632,
+            -5.872486739912481,
+            -3.0541716144657887,
+            6397648.5,
+            -0.3464067280292511,
+            -1.0
+          ],
+          "constant": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false
+          ]
+        },
+        "action": {
+          "min": [
+            -1.2216999832015494,
+            0.0,
+            -0.5400000214576721,
+            -1.909999959044981
+          ],
+          "max": [
+            0.26179900496974273,
+            1.2000000476837158,
+            0.0,
+            1.570000041628963
+          ],
+          "scale": [
+            1.3481640472605905,
+            1.6666666004392863,
+            3.7037035565317473,
+            0.5747126435668609
+          ],
+          "bias": [
+            0.6470519938911963,
+            -1.0,
+            1.0,
+            0.09770112567533706
+          ],
+          "constant": [
+            false,
+            false,
+            false,
+            false
+          ]
+        }
+      },
+      "fit_metadata": {
+        "episode_indices": [
+          1,
+          2,
+          4,
+          6,
+          7,
+          9
+        ],
+        "row_count": 820,
+        "method": "train-selected per-dimension affine minmax",
+        "constant_dimensions": "scale=1, bias=-training_min",
+        "clip": false,
+        "action_normalization": "physical_joint_limits",
+        "action_limits_source": "dataset source_configuration joint_lower/joint_upper"
+      }
+    }
+  },
+  "recovery": {
+    "path": "/home/oem/Documents/Codex/2026-11-19/new-chat/datasets/autopicker/m2_recovery_raw_v1",
+    "requested": 6,
+    "successes": 6,
+    "scope": "train targets only; static perturbed reset; zero velocity then settle",
+    "episodes": [
+      {
+        "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_035",
+        "sign": -1,
+        "source_episode_index": 1,
+        "recovery": {
+          "source_dataset_sha256": "f7d96a5015010969051af29532cbc0d2203b0cc852703fb0b5dec0a43c704fd5",
+          "source_episode_index": 1,
+          "source_split": "train",
+          "source_episode_json_sha256": "6ab5082a7b26d0f86c01735967711937f568023741d109b0403e6b9003e4e40b",
+          "source_raw_sha256": {
+            "states.npz": "8bb06f4a942422f35e00f501594a8afec083ea0212682c85f4ffb7465b394066"
+          },
+          "delta_q": [
+            -0.05235987755982989,
+            -0.025,
+            -0.02,
+            -0.08726646259971647
+          ],
+          "kind": "perturbed_pre_capture_reset",
+          "source_row": 4203,
+          "source_time_s": 8.75625,
+          "source_capture_time_s": 9.25625,
+          "reference_q": [
+            -0.607761561870575,
+            0.23839320242404938,
+            -0.35689228773117065,
+            1.1311529874801636
+          ],
+          "reset_q": [
+            -0.6601214394304048,
+            0.21339320242404938,
+            -0.37689228773117067,
+            1.0438865248804472
+          ],
+          "active_indices": [
+            2,
+            6,
+            10,
+            14
+          ],
+          "reset_velocity": "zero_then_settle",
+          "clipped": false,
+          "settled_q": [
+            -0.660356879234314,
+            0.2133931964635849,
+            -0.3773939311504364,
+            1.0439910888671875
+          ]
+        },
+        "success": true,
+        "reason": "collected",
+        "states": 5752,
+        "frames": 0,
+        "duration_s": 11.98125,
+        "max_sync_error_s": 0.0
+      },
+      {
+        "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_035",
+        "sign": 1,
+        "source_episode_index": 1,
+        "recovery": {
+          "source_dataset_sha256": "f7d96a5015010969051af29532cbc0d2203b0cc852703fb0b5dec0a43c704fd5",
+          "source_episode_index": 1,
+          "source_split": "train",
+          "source_episode_json_sha256": "6ab5082a7b26d0f86c01735967711937f568023741d109b0403e6b9003e4e40b",
+          "source_raw_sha256": {
+            "states.npz": "8bb06f4a942422f35e00f501594a8afec083ea0212682c85f4ffb7465b394066"
+          },
+          "delta_q": [
+            0.05235987755982989,
+            0.025,
+            0.02,
+            0.08726646259971647
+          ],
+          "kind": "perturbed_pre_capture_reset",
+          "source_row": 4203,
+          "source_time_s": 8.75625,
+          "source_capture_time_s": 9.25625,
+          "reference_q": [
+            -0.607761561870575,
+            0.23839320242404938,
+            -0.35689228773117065,
+            1.1311529874801636
+          ],
+          "reset_q": [
+            -0.5554016843107451,
+            0.2633932024240494,
+            -0.33689228773117064,
+            1.21841945007988
+          ],
+          "active_indices": [
+            2,
+            6,
+            10,
+            14
+          ],
+          "reset_velocity": "zero_then_settle",
+          "clipped": false,
+          "settled_q": [
+            -0.5556535720825195,
+            0.26339319348335266,
+            -0.33731263875961304,
+            1.2185618877410889
+          ]
+        },
+        "success": true,
+        "reason": "collected",
+        "states": 5910,
+        "frames": 0,
+        "duration_s": 12.310416666666667,
+        "max_sync_error_s": 0.0
+      },
+      {
+        "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_026",
+        "sign": -1,
+        "source_episode_index": 2,
+        "recovery": {
+          "source_dataset_sha256": "f7d96a5015010969051af29532cbc0d2203b0cc852703fb0b5dec0a43c704fd5",
+          "source_episode_index": 2,
+          "source_split": "train",
+          "source_episode_json_sha256": "374d3e5ff69d8c7ea10eadcbddaa943629eae916a24f4b202f8ad762a1541bc7",
+          "source_raw_sha256": {
+            "states.npz": "1ed0e7d5f011d0a0ead481b82ad832db90a2c956371e3bbd7f3021a62cd94679"
+          },
+          "delta_q": [
+            -0.05235987755982989,
+            -0.025,
+            -0.02,
+            -0.08726646259971647
+          ],
+          "kind": "perturbed_pre_capture_reset",
+          "source_row": 3298,
+          "source_time_s": 6.870833333333334,
+          "source_capture_time_s": 7.370833333333334,
+          "reference_q": [
+            -0.8918034434318542,
+            0.12278133630752563,
+            -0.46176567673683167,
+            1.4152051210403442
+          ],
+          "reset_q": [
+            -0.9441633209916841,
+            0.09778133630752564,
+            -0.4817656767368317,
+            1.3279386584406279
+          ],
+          "active_indices": [
+            2,
+            6,
+            10,
+            14
+          ],
+          "reset_velocity": "zero_then_settle",
+          "clipped": false,
+          "settled_q": [
+            -0.9443809390068054,
+            0.09778133779764175,
+            -0.48233646154403687,
+            1.3280699253082275
+          ]
+        },
+        "success": true,
+        "reason": "collected",
+        "states": 4841,
+        "frames": 0,
+        "duration_s": 10.083333333333334,
+        "max_sync_error_s": 0.0
+      },
+      {
+        "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_026",
+        "sign": 1,
+        "source_episode_index": 2,
+        "recovery": {
+          "source_dataset_sha256": "f7d96a5015010969051af29532cbc0d2203b0cc852703fb0b5dec0a43c704fd5",
+          "source_episode_index": 2,
+          "source_split": "train",
+          "source_episode_json_sha256": "374d3e5ff69d8c7ea10eadcbddaa943629eae916a24f4b202f8ad762a1541bc7",
+          "source_raw_sha256": {
+            "states.npz": "1ed0e7d5f011d0a0ead481b82ad832db90a2c956371e3bbd7f3021a62cd94679"
+          },
+          "delta_q": [
+            0.05235987755982989,
+            0.025,
+            0.02,
+            0.08726646259971647
+          ],
+          "kind": "perturbed_pre_capture_reset",
+          "source_row": 3298,
+          "source_time_s": 6.870833333333334,
+          "source_capture_time_s": 7.370833333333334,
+          "reference_q": [
+            -0.8918034434318542,
+            0.12278133630752563,
+            -0.46176567673683167,
+            1.4152051210403442
+          ],
+          "reset_q": [
+            -0.8394435658720244,
+            0.14778133630752563,
+            -0.44176567673683165,
+            1.5024715836400606
+          ],
+          "active_indices": [
+            2,
+            6,
+            10,
+            14
+          ],
+          "reset_velocity": "zero_then_settle",
+          "clipped": false,
+          "settled_q": [
+            -0.8396841287612915,
+            0.1477813422679901,
+            -0.44227269291877747,
+            1.502644419670105
+          ]
+        },
+        "success": true,
+        "reason": "collected",
+        "states": 4903,
+        "frames": 0,
+        "duration_s": 10.2125,
+        "max_sync_error_s": 0.0
+      },
+      {
+        "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_034",
+        "sign": -1,
+        "source_episode_index": 4,
+        "recovery": {
+          "source_dataset_sha256": "f7d96a5015010969051af29532cbc0d2203b0cc852703fb0b5dec0a43c704fd5",
+          "source_episode_index": 4,
+          "source_split": "train",
+          "source_episode_json_sha256": "7ecc584b13ff7d4d4fa60e50a0bd9792caf9089c555e936f5177c23c27e21c48",
+          "source_raw_sha256": {
+            "states.npz": "88ee8850a13f64b1eb43e64368152df5220f6cd784c1d057043e7c5ba99200a3"
+          },
+          "delta_q": [
+            -0.05235987755982989,
+            -0.025,
+            -0.02,
+            -0.08726646259971647
+          ],
+          "kind": "perturbed_pre_capture_reset",
+          "source_row": 4191,
+          "source_time_s": 8.73125,
+          "source_capture_time_s": 9.23125,
+          "reference_q": [
+            -0.6124600172042847,
+            0.4115050137042999,
+            -0.38740646839141846,
+            1.1358755826950073
+          ],
+          "reset_q": [
+            -0.6648198947641145,
+            0.3865050137042999,
+            -0.4074064683914185,
+            1.048609120095291
+          ],
+          "active_indices": [
+            2,
+            6,
+            10,
+            14
+          ],
+          "reset_velocity": "zero_then_settle",
+          "clipped": false,
+          "settled_q": [
+            -0.6650404930114746,
+            0.38650500774383545,
+            -0.40790027379989624,
+            1.04871666431427
+          ]
+        },
+        "success": true,
+        "reason": "collected",
+        "states": 5743,
+        "frames": 0,
+        "duration_s": 11.9625,
+        "max_sync_error_s": 0.0
+      },
+      {
+        "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_034",
+        "sign": 1,
+        "source_episode_index": 4,
+        "recovery": {
+          "source_dataset_sha256": "f7d96a5015010969051af29532cbc0d2203b0cc852703fb0b5dec0a43c704fd5",
+          "source_episode_index": 4,
+          "source_split": "train",
+          "source_episode_json_sha256": "7ecc584b13ff7d4d4fa60e50a0bd9792caf9089c555e936f5177c23c27e21c48",
+          "source_raw_sha256": {
+            "states.npz": "88ee8850a13f64b1eb43e64368152df5220f6cd784c1d057043e7c5ba99200a3"
+          },
+          "delta_q": [
+            0.05235987755982989,
+            0.025,
+            0.02,
+            0.08726646259971647
+          ],
+          "kind": "perturbed_pre_capture_reset",
+          "source_row": 4191,
+          "source_time_s": 8.73125,
+          "source_capture_time_s": 9.23125,
+          "reference_q": [
+            -0.6124600172042847,
+            0.4115050137042999,
+            -0.38740646839141846,
+            1.1358755826950073
+          ],
+          "reset_q": [
+            -0.5601001396444548,
+            0.43650501370429995,
+            -0.36740646839141844,
+            1.2231420452947237
+          ],
+          "active_indices": [
+            2,
+            6,
+            10,
+            14
+          ],
+          "reset_velocity": "zero_then_settle",
+          "clipped": false,
+          "settled_q": [
+            -0.560337483882904,
+            0.4365050196647644,
+            -0.3678205609321594,
+            1.223284363746643
+          ]
+        },
+        "success": true,
+        "reason": "collected",
+        "states": 5891,
+        "frames": 0,
+        "duration_s": 12.270833333333334,
+        "max_sync_error_s": 0.0
+      }
+    ],
+    "export_accepted": true,
+    "used_for_training_in_this_ablation": true,
+    "export_rows": 685,
+    "export_sha256": "b08522b9a197b6aba23b9152c05b232a888725d6c4552178817451fec7cad8be",
+    "converted_replay": {
+      "path": "/home/oem/Documents/Codex/2026-11-19/new-chat/runs/autopicker/m2_recovery_replay_v1",
+      "mode": "converted-replay",
+      "scope": "oracle lowdim, fixed scene/reset, pilot only",
+      "split": "train",
+      "requested": 6,
+      "attempted": 6,
+      "captures": 6,
+      "successes": 6,
+      "checkpoint_sha256": null,
+      "seed": 0,
+      "episodes": [
+        {
+          "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_035",
+          "success": true,
+          "reason": "collected",
+          "captured": true,
+          "duration_s": 11.810416666666667,
+          "wall_time_s": 13.592749676001404,
+          "min_unattached_tip_distance_m": 0.0030049179614428643,
+          "inference_requests": 0,
+          "limited_steps": 5668,
+          "events": [
+            {
+              "kind": "capture",
+              "time_s": 7.104166666666667,
+              "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_035",
+              "error_m": 0.002997027377891079,
+              "angle_error_degrees": 0.012548179626709097
+            },
+            {
+              "kind": "collect",
+              "time_s": 11.810416666666667,
+              "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_035",
+              "receiver_world_m": [
+                0.41779904580542776,
+                -0.38132956209901936,
+                0.834452640098365
+              ]
+            }
+          ]
+        },
+        {
+          "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_035",
+          "success": true,
+          "reason": "collected",
+          "captured": true,
+          "duration_s": 12.195833333333333,
+          "wall_time_s": 14.563740262001375,
+          "min_unattached_tip_distance_m": 0.0030000890853006746,
+          "inference_requests": 0,
+          "limited_steps": 5837,
+          "events": [
+            {
+              "kind": "capture",
+              "time_s": 7.479166666666667,
+              "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_035",
+              "error_m": 0.0029985657401074054,
+              "angle_error_degrees": 0.014199745794730104
+            },
+            {
+              "kind": "collect",
+              "time_s": 12.195833333333333,
+              "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_035",
+              "receiver_world_m": [
+                0.4177884957833025,
+                -0.3813295620944416,
+                0.834452640098365
+              ]
+            }
+          ]
+        },
+        {
+          "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_026",
+          "success": true,
+          "reason": "collected",
+          "captured": true,
+          "duration_s": 9.908333333333333,
+          "wall_time_s": 11.612064551000003,
+          "min_unattached_tip_distance_m": 0.003001908214454941,
+          "inference_requests": 0,
+          "limited_steps": 4755,
+          "events": [
+            {
+              "kind": "capture",
+              "time_s": 4.7,
+              "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_026",
+              "error_m": 0.002993701816144679,
+              "angle_error_degrees": 0.007087179670386783
+            },
+            {
+              "kind": "collect",
+              "time_s": 9.908333333333333,
+              "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_026",
+              "receiver_world_m": [
+                0.30218694872091645,
+                -0.38132951193350567,
+                0.834452640098365
+              ]
+            }
+          ]
+        },
+        {
+          "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_026",
+          "success": true,
+          "reason": "collected",
+          "captured": true,
+          "duration_s": 10.089583333333334,
+          "wall_time_s": 11.769661991000248,
+          "min_unattached_tip_distance_m": 0.0030070508463260256,
+          "inference_requests": 0,
+          "limited_steps": 4842,
+          "events": [
+            {
+              "kind": "capture",
+              "time_s": 4.804166666666666,
+              "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_026",
+              "error_m": 0.0029979554007008124,
+              "angle_error_degrees": 0.011914803384765216
+            },
+            {
+              "kind": "collect",
+              "time_s": 10.089583333333334,
+              "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_026",
+              "receiver_world_m": [
+                0.3021817929191434,
+                -0.3813295119312685,
+                0.834452640098365
+              ]
+            }
+          ]
+        },
+        {
+          "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_034",
+          "success": true,
+          "reason": "collected",
+          "captured": true,
+          "duration_s": 11.797916666666666,
+          "wall_time_s": 13.544496349999463,
+          "min_unattached_tip_distance_m": 0.003005863402343755,
+          "inference_requests": 0,
+          "limited_steps": 5640,
+          "events": [
+            {
+              "kind": "capture",
+              "time_s": 7.102083333333333,
+              "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_034",
+              "error_m": 0.0029989077878176808,
+              "angle_error_degrees": 0.013199275628233892
+            },
+            {
+              "kind": "collect",
+              "time_s": 11.797916666666666,
+              "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_034",
+              "receiver_world_m": [
+                0.5909125409168767,
+                -0.3813296372150983,
+                0.834452640098365
+              ]
+            }
+          ]
+        },
+        {
+          "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_034",
+          "success": true,
+          "reason": "collected",
+          "captured": true,
+          "duration_s": 12.102083333333333,
+          "wall_time_s": 13.88684737299991,
+          "min_unattached_tip_distance_m": 0.00300625908891116,
+          "inference_requests": 0,
+          "limited_steps": 5771,
+          "events": [
+            {
+              "kind": "capture",
+              "time_s": 7.402083333333334,
+              "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_034",
+              "error_m": 0.0029977303856861606,
+              "angle_error_degrees": 0.008676741286337308
+            },
+            {
+              "kind": "collect",
+              "time_s": 12.102083333333333,
+              "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_034",
+              "receiver_world_m": [
+                0.5908952555698919,
+                -0.381329637207598,
+                0.834452640098365
+              ]
+            }
+          ]
+        }
+      ],
+      "latency_s": null
+    }
+  },
+  "pairs": {
+    "seen_targets": {
+      "source_episode_indices": [
+        1,
+        2,
+        4
+      ],
+      "baseline_rollout": {
+        "path": "/home/oem/Documents/Codex/2026-11-19/new-chat/runs/autopicker/m3_baseline_train_v1",
+        "mode": "policy",
+        "scope": "oracle lowdim, fixed scene/reset, pilot only",
+        "split": "train",
+        "requested": 3,
+        "attempted": 3,
+        "captures": 0,
+        "successes": 0,
+        "checkpoint_sha256": "26031d4e8625e715f38c4159187d405d2cfb906dc63e6d09bc75f2afc379b83d",
+        "seed": 0,
+        "episodes": [
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_035",
+            "success": false,
+            "reason": "Episode timed out before collect",
+            "captured": false,
+            "duration_s": 35.0,
+            "wall_time_s": 59.67816047300221,
+            "min_unattached_tip_distance_m": 0.008422331512293763,
+            "inference_requests": 175,
+            "limited_steps": 16799,
+            "events": []
+          },
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_026",
+            "success": false,
+            "reason": "Episode timed out before collect",
+            "captured": false,
+            "duration_s": 35.0,
+            "wall_time_s": 59.08553721899807,
+            "min_unattached_tip_distance_m": 0.15425768569012943,
+            "inference_requests": 175,
+            "limited_steps": 16799,
+            "events": []
+          },
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_034",
+            "success": false,
+            "reason": "Episode timed out before collect",
+            "captured": false,
+            "duration_s": 35.0,
+            "wall_time_s": 60.91840044100172,
+            "min_unattached_tip_distance_m": 0.01899213687060488,
+            "inference_requests": 175,
+            "limited_steps": 16799,
+            "events": []
+          }
+        ],
+        "latency_s": {
+          "count": 525,
+          "mean": 0.09451258580952916,
+          "p95": 0.1086402189990622,
+          "max": 0.12525488499886706
+        },
+        "velocity_support": [
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_035",
+            "requests": 175,
+            "velocity_observations_outside_fit_range_by_joint": [
+              22,
+              116,
+              40,
+              21
+            ]
+          },
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_026",
+            "requests": 175,
+            "velocity_observations_outside_fit_range_by_joint": [
+              64,
+              140,
+              92,
+              23
+            ]
+          },
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_034",
+            "requests": 175,
+            "velocity_observations_outside_fit_range_by_joint": [
+              56,
+              132,
+              69,
+              30
+            ]
+          }
+        ]
+      },
+      "augmented_rollout": {
+        "path": "/home/oem/Documents/Codex/2026-11-19/new-chat/runs/autopicker/m3_recovery_train_v1",
+        "mode": "policy",
+        "scope": "oracle lowdim, fixed scene/reset, pilot only",
+        "split": "train",
+        "requested": 3,
+        "attempted": 3,
+        "captures": 0,
+        "successes": 0,
+        "checkpoint_sha256": "b72e353b8c6f315402c348f4f2230fb785edb2d2bee0772c30ea5e398434800c",
+        "seed": 0,
+        "episodes": [
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_035",
+            "success": false,
+            "reason": "Episode timed out before collect",
+            "captured": false,
+            "duration_s": 35.0,
+            "wall_time_s": 62.02870770699883,
+            "min_unattached_tip_distance_m": 0.009414866067055277,
+            "inference_requests": 175,
+            "limited_steps": 16799,
+            "events": []
+          },
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_026",
+            "success": false,
+            "reason": "Episode timed out before collect",
+            "captured": false,
+            "duration_s": 35.0,
+            "wall_time_s": 61.745968078997976,
+            "min_unattached_tip_distance_m": 0.012916832477912985,
+            "inference_requests": 175,
+            "limited_steps": 16799,
+            "events": []
+          },
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_034",
+            "success": false,
+            "reason": "Episode timed out before collect",
+            "captured": false,
+            "duration_s": 35.0,
+            "wall_time_s": 61.84575630100153,
+            "min_unattached_tip_distance_m": 0.007811255748779908,
+            "inference_requests": 175,
+            "limited_steps": 16799,
+            "events": []
+          }
+        ],
+        "latency_s": {
+          "count": 525,
+          "mean": 0.10405846026478685,
+          "p95": 0.1148653423988435,
+          "max": 0.12864549799996894
+        },
+        "velocity_support": [
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_035",
+            "requests": 175,
+            "velocity_observations_outside_fit_range_by_joint": [
+              28,
+              88,
+              28,
+              13
+            ]
+          },
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_026",
+            "requests": 175,
+            "velocity_observations_outside_fit_range_by_joint": [
+              34,
+              112,
+              74,
+              27
+            ]
+          },
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_034",
+            "requests": 175,
+            "velocity_observations_outside_fit_range_by_joint": [
+              21,
+              96,
+              30,
+              7
+            ]
+          }
+        ]
+      },
+      "baseline_reused_from_m2": false
+    },
+    "validation": {
+      "source_episode_indices": [
+        0,
+        5
+      ],
+      "baseline_rollout": {
+        "path": "/home/oem/Documents/Codex/2026-11-19/new-chat/runs/autopicker/m2_policy_val_physical_v1",
+        "mode": "policy",
+        "scope": "oracle lowdim, fixed scene/reset, pilot only",
+        "split": "val",
+        "requested": 2,
+        "attempted": 2,
+        "captures": 0,
+        "successes": 0,
+        "checkpoint_sha256": "26031d4e8625e715f38c4159187d405d2cfb906dc63e6d09bc75f2afc379b83d",
+        "seed": 0,
+        "episodes": [
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036",
+            "success": false,
+            "reason": "Episode timed out before collect",
+            "captured": false,
+            "duration_s": 35.0,
+            "wall_time_s": 50.45211724699948,
+            "min_unattached_tip_distance_m": 0.06231327550531697,
+            "inference_requests": 175,
+            "limited_steps": 16799,
+            "events": []
+          },
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036",
+            "success": false,
+            "reason": "Episode timed out before collect",
+            "captured": false,
+            "duration_s": 35.0,
+            "wall_time_s": 53.52527886200005,
+            "min_unattached_tip_distance_m": 0.05618936763277499,
+            "inference_requests": 175,
+            "limited_steps": 16799,
+            "events": []
+          }
+        ],
+        "latency_s": {
+          "count": 350,
+          "mean": 0.07617728162001315,
+          "p95": 0.10846300614975916,
+          "max": 0.16134973200132663
+        },
+        "velocity_support": [
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036",
+            "requests": 175,
+            "velocity_observations_outside_fit_range_by_joint": [
+              40,
+              128,
+              88,
+              37
+            ]
+          },
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036",
+            "requests": 175,
+            "velocity_observations_outside_fit_range_by_joint": [
+              44,
+              140,
+              85,
+              34
+            ]
+          }
+        ]
+      },
+      "augmented_rollout": {
+        "path": "/home/oem/Documents/Codex/2026-11-19/new-chat/runs/autopicker/m3_recovery_val_v1",
+        "mode": "policy",
+        "scope": "oracle lowdim, fixed scene/reset, pilot only",
+        "split": "val",
+        "requested": 2,
+        "attempted": 2,
+        "captures": 0,
+        "successes": 0,
+        "checkpoint_sha256": "b72e353b8c6f315402c348f4f2230fb785edb2d2bee0772c30ea5e398434800c",
+        "seed": 0,
+        "episodes": [
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036",
+            "success": false,
+            "reason": "Episode timed out before collect",
+            "captured": false,
+            "duration_s": 35.0,
+            "wall_time_s": 61.0929944740019,
+            "min_unattached_tip_distance_m": 0.09708177679262955,
+            "inference_requests": 175,
+            "limited_steps": 16799,
+            "events": []
+          },
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036",
+            "success": false,
+            "reason": "Episode timed out before collect",
+            "captured": false,
+            "duration_s": 35.0,
+            "wall_time_s": 61.31414530799884,
+            "min_unattached_tip_distance_m": 0.0811404394369921,
+            "inference_requests": 175,
+            "limited_steps": 16799,
+            "events": []
+          }
+        ],
+        "latency_s": {
+          "count": 350,
+          "mean": 0.10423571313995386,
+          "p95": 0.11636250425017351,
+          "max": 0.1238390510006866
+        },
+        "velocity_support": [
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036",
+            "requests": 175,
+            "velocity_observations_outside_fit_range_by_joint": [
+              20,
+              101,
+              56,
+              12
+            ]
+          },
+          {
+            "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036",
+            "requests": 175,
+            "velocity_observations_outside_fit_range_by_joint": [
+              20,
+              111,
+              61,
+              17
+            ]
+          }
+        ]
+      },
+      "baseline_reused_from_m2": true
+    }
+  },
+  "new_policy_trials": 8,
+  "reused_policy_trials": 2,
+  "data_and_protocol_audit_passed": true,
+  "learned_collection_demonstrated": false,
+  "robust_policy_accepted": false
+}

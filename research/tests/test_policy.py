@@ -107,6 +107,29 @@ class PolicyTests(unittest.TestCase):
             np.testing.assert_array_equal(actual, expected)
             self.assertTrue(np.all((actual >= 0) & (actual <= 1)))
 
+    @unittest.skipUnless(importlib.util.find_spec('zarr'), 'Zarr required')
+    def test_recovery_training_freezes_normalizer_and_saves_both_identities(self):
+        import torch
+        from test_augmentation import augmentation_fixture
+        from autopicker_dp.train import training_inputs, training_normalizer, save_checkpoint, load_policy
+        with tempfile.TemporaryDirectory() as folder:
+            base, _, base_hash, recovery, recovery_path = augmentation_fixture(Path(folder))
+            normalizer, sequences, info = training_inputs(base, base_hash, 'train', 'physical', recovery_path)
+            self.assertEqual(normalizer.to_dict(), training_normalizer(base, [0], 'physical').to_dict())
+            self.assertEqual(len(sequences), 45)
+            for split, mapping in [('all-pilot', 'physical'), ('train', 'data')]:
+                with self.assertRaises(ValueError):
+                    training_inputs(base, base_hash, split, mapping, recovery_path)
+            policy = self.policy()
+            path = Path(folder) / 'checkpoint.pt'
+            save_checkpoint(path, policy, policy, torch.optim.AdamW(policy.parameters()),
+                            {'dataset_sha256': base_hash, 'normalizer': normalizer.to_dict(),
+                             'recovery_augmentation': info})
+            _, metadata = load_policy(path, os.environ['AUTOPICKER_DP_UPSTREAM'], 'cpu')
+            self.assertEqual(metadata['recovery_augmentation'], info)
+            self.assertEqual(metadata['dataset_sha256'], base_hash)
+            self.assertNotEqual(info['dataset_sha256'], base_hash)
+
 
 if __name__ == '__main__':
     unittest.main()

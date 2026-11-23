@@ -143,6 +143,28 @@ work/autopicker_train_env/bin/python research/tests/validate_m2.py --include-rec
 
 只有全部采集成功才执行此处的转换和回放；失败回合保留在原始目录中，转换器会拒绝包含失败的目录。`AUTOPICKER_RECOVERY_COMPLETE` 表示所有请求已处理，不表示全部成功。静态扰动恢复数据没有注入运动中扰动，也不是 DAgger；本轮归一化对照不混入这批新数据，避免同时改变两个实验因素。
 
+## M3：恢复示范训练消融
+
+只增加 M2 的六条静态恢复示范，主数据集仍为 `lowdim_v2`。整个观测归一化及物理动作映射固定为原 train 拟合结果；新窗口不重新拟合 normalizer。训练从原 820 个窗口与恢复 685 个窗口的合集中均匀抽样，共 1,505 个窗口，恢复窗口占 45.51%。这不是 50/50 混合；固定总更新数也意味着原始示范的平均采样次数减少。
+
+```bash
+work/autopicker_train_env/bin/python research/autopicker_dp/train.py --dataset datasets/autopicker/lowdim_v2 --recovery-dataset datasets/autopicker/m2_recovery_lowdim_v1 --upstream work/diffusion_policy_upstream --output runs/autopicker/m3_train_recovery_v1 --split train --action-normalization physical --steps 3000 --batch-size 64 --seed 0
+work/autopicker_train_env/bin/python research/autopicker_dp/evaluate.py --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m3_train_recovery_v1/checkpoint.pt --upstream work/diffusion_policy_upstream --output runs/autopicker/m3_train_recovery_v1/offline.json
+```
+
+`--recovery-dataset` 仅允许配合 `--split train --action-normalization physical`。接入时从原始文件重建并核对导出数组，检查目标划分、源回合/数据散列、扰动状态、实际稳定初态和重复轨迹；checkpoint 同时保存主数据集与恢复集身份及采样规则。恢复集的原始来源也必须保留。
+
+按顺序执行三组闭环实验，每组都重新启动 Isaac；不要与 GPU 训练或其他推理任务并行：
+
+```bash
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode policy --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m2_train_physical_v1/checkpoint.pt --inference-python work/autopicker_train_env/bin/python --upstream work/diffusion_policy_upstream --output runs/autopicker/m3_baseline_train_v1 --split train --max-episodes 3 --seed 0 --timeout 35 --headless
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode policy --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m3_train_recovery_v1/checkpoint.pt --inference-python work/autopicker_train_env/bin/python --upstream work/diffusion_policy_upstream --output runs/autopicker/m3_recovery_train_v1 --split train --max-episodes 3 --seed 0 --timeout 35 --headless
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode policy --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m3_train_recovery_v1/checkpoint.pt --inference-python work/autopicker_train_env/bin/python --upstream work/diffusion_policy_upstream --output runs/autopicker/m3_recovery_val_v1 --split val --seed 0 --timeout 35 --headless
+work/autopicker_train_env/bin/python research/tests/validate_m3.py --output work/m3-recheck.json
+```
+
+前两组配对使用原 train 索引 `[1,2,4]`，即三个不同已见目标；第三组验证索引 `[0,5]` 为同一留出目标重复两次，与 M2 已保存的 `m2_policy_val_physical_v1` 对比。这轮新增 8 次闭环评估，复用 2 次 M2 验证结果；没有新增 test 闭环。`AUTOPICKER_M3_AUDIT_PASS` 只表示产物与实验条件一致。结论见 [M3 实验报告](../docs/research/2026-11-23-m3-validation.md)。
+
 ## 范围与下一步
 
 这些是固定场景、单臂、真值输入和视觉吸附条件下的工程验证。即使拟合成功，也仍需要更多独立目标/场景、扰动示范、多个训练种子、基线及视觉感知实验，才能支持论文结论。
