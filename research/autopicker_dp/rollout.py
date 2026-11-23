@@ -138,6 +138,11 @@ def main():
         for ordinal, index in enumerate(indices):
             source = dataset.manifest['episodes'][index]
             env.reset(source['metadata']['target_path'], source['metadata']['reset_joint_positions'])
+            recovery = source['metadata'].get('recovery', {})
+            if recovery.get('kind') == 'policy_state_reset':
+                from autopicker_dp.dynamic_recovery import validated_dynamic_state, restore_dynamic_state
+                state = validated_dynamic_state(recovery, source['metadata'])
+                restore_dynamic_state(env, state)
             actual_transform = np.array(UsdGeom.Xformable(env.stage.GetPrimAtPath('/World/Autopicker'))
                                         .ComputeLocalToWorldTransform(0))
             if (not np.allclose(actual_transform, config['world_from_base'], rtol=0, atol=1e-9)
@@ -161,6 +166,8 @@ def main():
                      'source_episode_index': index, 'source_split': source['split'],
                      'evaluation_scope': summary['scope'], 'policy_dt': dataset.manifest['dt'],
                      'observation_semantics': dataset.manifest['observation_semantics']}
+            if recovery.get('kind') == 'policy_state_reset':
+                extra['dynamic_initial_state'] = state
             summary['attempted'] += 1
             directory = options.output / f'episode_{ordinal:04d}'
             try:

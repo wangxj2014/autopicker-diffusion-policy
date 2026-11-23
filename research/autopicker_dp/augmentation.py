@@ -50,6 +50,15 @@ def validate_recovery(parent, parent_hash, recovery):
         raw_source = Episode.load(Path(parent.manifest['source_root']) / source['path'])
         if _sha256(Path(parent.manifest['source_root']) / source['path'] / 'episode.json') != source['episode_json_sha256']:
             raise ValueError('Parent raw episode identity changed')
+        recorded = Episode.load(Path(manifest['source_root']) / episode['path'])
+        if info.get('kind') == 'policy_state_reset':
+            from .dynamic_recovery import validate_dynamic_provenance
+            state = validate_dynamic_provenance(info, metadata, parent, parent_hash)
+            arrays = recorded.arrays()
+            if (not np.allclose(arrays['q_all'][0], state['q_all'], atol=1e-6, rtol=0)
+                    or not np.allclose(arrays['qdot'][0], state['qdot'], atol=1e-6, rtol=0)):
+                raise ValueError('Dynamic recovery initial measured position or velocity mismatch')
+            continue
         try:
             reset, expected = recovery_reset(raw_source, info['active_indices'], metadata['joint_lower'],
                                              metadata['joint_upper'], info['delta_q'])
@@ -58,7 +67,6 @@ def validate_recovery(parent, parent_hash, recovery):
         if (any(info.get(key) != value for key, value in expected.items())
                 or metadata.get('reset_joint_positions') != reset.tolist()):
             raise ValueError('Recovery source state or reset provenance mismatch')
-        recorded = Episode.load(Path(manifest['source_root']) / episode['path'])
         settled = np.asarray(info.get('settled_q'), dtype=float)
         if (settled.shape != (4,) or not np.isfinite(settled).all()
                 or not np.allclose(settled, recorded.arrays()['q'][0], atol=1e-8, rtol=0)):

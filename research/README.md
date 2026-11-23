@@ -165,6 +165,25 @@ work/autopicker_train_env/bin/python research/tests/validate_m3.py --output work
 
 前两组配对使用原 train 索引 `[1,2,4]`，即三个不同已见目标；第三组验证索引 `[0,5]` 为同一留出目标重复两次，与 M2 已保存的 `m2_policy_val_physical_v1` 对比。这轮新增 8 次闭环评估，复用 2 次 M2 验证结果；没有新增 test 闭环。`AUTOPICKER_M3_AUDIT_PASS` 只表示产物与实验条件一致。结论见 [M3 实验报告](../docs/research/2026-11-23-m3-validation.md)。
 
+## M4：保留运动状态的专家纠偏
+
+`dynamic_recovery.py` 从 M3 三个 train 策略失败轨迹的固定 2 s、6 s 时刻提取全关节位置、活动臂实测速度和上一物理步执行器位置/速度命令。先重置果园，再恢复这些量，恢复后不推进物理或再次稳定。旧日志没有其他三臂的速度，明确置零；这不是完整 PhysX 求解器快照，也不是在线 DAgger。
+
+按顺序采集、导出和回放，仅在六条采集与六条回放全部成功后训练：
+
+```bash
+/path/to/isaac-sim/python.sh research/autopicker_dp/dynamic_recovery.py --dataset datasets/autopicker/lowdim_v2 --policy-rollout runs/autopicker/m3_recovery_train_v1 --checkpoint runs/autopicker/m3_train_recovery_v1/checkpoint.pt --output datasets/autopicker/m4_dynamic_raw_v1 --timeout 35 --headless
+work/autopicker_train_env/bin/python research/autopicker_dp/dataset.py --input datasets/autopicker/m4_dynamic_raw_v1 --output datasets/autopicker/m4_dynamic_lowdim_v1 --split-counts 3 0 0
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode converted-replay --dataset datasets/autopicker/m4_dynamic_lowdim_v1 --output runs/autopicker/m4_dynamic_replay_v1 --split train --timeout 35 --headless
+work/autopicker_train_env/bin/python research/autopicker_dp/train.py --dataset datasets/autopicker/lowdim_v2 --recovery-dataset datasets/autopicker/m4_dynamic_lowdim_v1 --upstream work/diffusion_policy_upstream --output runs/autopicker/m4_train_dynamic_v1 --split train --action-normalization physical --steps 3000 --batch-size 64 --seed 0
+work/autopicker_train_env/bin/python research/autopicker_dp/evaluate.py --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m4_train_dynamic_v1/checkpoint.pt --upstream work/diffusion_policy_upstream --output runs/autopicker/m4_train_dynamic_v1/offline.json
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode policy --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m4_train_dynamic_v1/checkpoint.pt --inference-python work/autopicker_train_env/bin/python --upstream work/diffusion_policy_upstream --output runs/autopicker/m4_dynamic_train_v1 --split train --max-episodes 3 --seed 0 --timeout 35 --headless
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode policy --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m4_train_dynamic_v1/checkpoint.pt --inference-python work/autopicker_train_env/bin/python --upstream work/diffusion_policy_upstream --output runs/autopicker/m4_dynamic_val_v1 --split val --seed 0 --timeout 35 --headless
+work/autopicker_train_env/bin/python research/tests/validate_m4.py --output work/m4-recheck.json
+```
+
+动态示范替换 M3 的静态示范，两份恢复集不叠加。训练仍冻结原 train 的完整 normalizer；原 820 个窗口加动态 733 个窗口，共 1,553 个，均匀采样时动态占 47.20%。目标划分、网络、seed=0、3000 步和成功门槛沿用 M3。新增五次策略试验与 M3 已保存的三次 train、两次 val 配对比较，没有新增 test 闭环。数据来源的策略轨迹、父示范和 checkpoint 都必须保留用于散列核验；输出目录必须为新目录。实际结果见 [M4 实验报告](../docs/research/2026-11-23-m4-validation.md)。
+
 ## 范围与下一步
 
 这些是固定场景、单臂、真值输入和视觉吸附条件下的工程验证。即使拟合成功，也仍需要更多独立目标/场景、扰动示范、多个训练种子、基线及视觉感知实验，才能支持论文结论。
