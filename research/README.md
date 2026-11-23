@@ -184,6 +184,24 @@ work/autopicker_train_env/bin/python research/tests/validate_m4.py --output work
 
 动态示范替换 M3 的静态示范，两份恢复集不叠加。训练仍冻结原 train 的完整 normalizer；原 820 个窗口加动态 733 个窗口，共 1,553 个，均匀采样时动态占 47.20%。目标划分、网络、seed=0、3000 步和成功门槛沿用 M3。新增五次策略试验与 M3 已保存的三次 train、两次 val 配对比较，没有新增 test 闭环。数据来源的策略轨迹、父示范和 checkpoint 都必须保留用于散列核验；输出目录必须为新目录。实际结果见 [M4 实验报告](../docs/research/2026-11-23-m4-validation.md)。
 
+## M5：直接预测干净动作
+
+`--prediction-type sample` 将扩散网络的训练目标改为干净的归一化动作序列（x0），DDIM 同时使用 `sample` 解码。默认仍为 `epsilon`；旧 checkpoint 不含此配置时按 epsilon 加载，模型与保存的 scheduler 目标不一致时拒绝推理。两种目标的 loss 数值不可直接比较，须比较物理单位误差与完整采摘结果。
+
+同预算对照使用 M3 的原 820 + 静态恢复 685 个窗口、完整冻结 normalizer、seed=0、3000 步和相同网络/执行器。固定观测诊断抽取原 train 的每八个窗口，使用噪声种子 0–7，分别统计采样波动、平均预测偏差与单次采样 MAE；它只测专家观测下的输出，不能代替闭环成功率。
+
+```bash
+work/autopicker_train_env/bin/python research/autopicker_dp/train.py --dataset datasets/autopicker/lowdim_v2 --recovery-dataset datasets/autopicker/m2_recovery_lowdim_v1 --upstream work/diffusion_policy_upstream --output runs/autopicker/m5_train_sample_v1 --split train --action-normalization physical --prediction-type sample --steps 3000 --batch-size 64 --seed 0
+work/autopicker_train_env/bin/python research/autopicker_dp/evaluate.py --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m5_train_sample_v1/checkpoint.pt --upstream work/diffusion_policy_upstream --output runs/autopicker/m5_train_sample_v1/offline.json
+work/autopicker_train_env/bin/python research/autopicker_dp/diagnose.py --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m5_train_sample_v1/checkpoint.pt --upstream work/diffusion_policy_upstream --output runs/autopicker/m5_train_sample_v1/diagnostic.json
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode policy --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m5_train_sample_v1/checkpoint.pt --inference-python work/autopicker_train_env/bin/python --upstream work/diffusion_policy_upstream --output runs/autopicker/m5_sample_train_v1 --split train --max-episodes 3 --seed 0 --timeout 35 --headless
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode policy --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m5_train_sample_v1/checkpoint.pt --inference-python work/autopicker_train_env/bin/python --upstream work/diffusion_policy_upstream --output runs/autopicker/m5_sample_val_v1 --split val --seed 0 --timeout 35 --headless
+work/autopicker_train_env/bin/python research/autopicker_dp/diagnose.py --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m3_train_recovery_v1/checkpoint.pt --upstream work/diffusion_policy_upstream --output runs/autopicker/m3_train_recovery_v1/m5_diagnostic.json
+work/autopicker_train_env/bin/python research/tests/validate_m5.py --output work/m5-recheck.json
+```
+
+所有 GPU 命令串行执行。3000 步模型未完成采摘，因此额外执行一次预定的 30000 步实验：训练从相同 seed 重新开始，训练输出改为 `m5_train_sample_long_v1`、步数改为 `30000`；离线评估及诊断使用该 checkpoint，闭环输出分别为 `m5_sample_long_train_v1`、`m5_sample_long_val_v1`。其余参数完全相同；审计加 `--include-longer`。没有启用 CUDA 严格确定性，不保证两次训练的前 3000 步逐位一致。这组增加了训练预算，单独报告，不能算作同预算目标消融。审计检查 checkpoint、目标、训练预算、数据来源、探针协议、两次 sample 训练的源码一致性和全部尝试，`AUDIT_PASS` 本身不表示成功率提升。完整结果见 [M5 实验报告](../docs/research/2026-11-23-m5-validation.md)。
+
 ## 范围与下一步
 
 这些是固定场景、单臂、真值输入和视觉吸附条件下的工程验证。即使拟合成功，也仍需要更多独立目标/场景、扰动示范、多个训练种子、基线及视觉感知实验，才能支持论文结论。

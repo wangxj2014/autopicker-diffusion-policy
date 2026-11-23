@@ -26,19 +26,22 @@ def upstream_model(path):
 
 class DiffusionPolicy(torch.nn.Module):
     def __init__(self, upstream, down_dims=(64, 128, 256), diffusion_step_embed_dim=64,
-                 horizon=16, n_obs_steps=2, n_action_steps=2, inference_steps=20):
+                 horizon=16, n_obs_steps=2, n_action_steps=2, inference_steps=20,
+                 prediction_type='epsilon'):
         super().__init__()
         if horizon != 16 or n_obs_steps != 2 or n_action_steps != 2 or not 1 <= inference_steps <= 100:
             raise ValueError('This pilot requires horizon/observation/action lengths 16/2/2')
+        if prediction_type not in ('epsilon', 'sample'):
+            raise ValueError('Unknown diffusion prediction objective')
         self.config = dict(down_dims=list(down_dims), diffusion_step_embed_dim=diffusion_step_embed_dim,
                            horizon=horizon, n_obs_steps=n_obs_steps, n_action_steps=n_action_steps,
-                           inference_steps=inference_steps)
+                           inference_steps=inference_steps, prediction_type=prediction_type)
         self.model = upstream_model(upstream)(input_dim=4, global_cond_dim=15*n_obs_steps,
                                               diffusion_step_embed_dim=diffusion_step_embed_dim,
                                               down_dims=list(down_dims), kernel_size=5, n_groups=8,
                                               cond_predict_scale=True)
         self.scheduler = DDIMScheduler(num_train_timesteps=100, beta_schedule='squaredcos_cap_v2',
-                                        clip_sample=True, prediction_type='epsilon',
+                                        clip_sample=True, prediction_type=prediction_type,
                                         set_alpha_to_one=True, steps_offset=0)
 
     def loss(self, observation, action, valid_mask):
@@ -50,7 +53,8 @@ class DiffusionPolicy(torch.nn.Module):
         timesteps = torch.randint(0, 100, (len(action),), device=action.device)
         noisy = self.scheduler.add_noise(action, noise, timesteps)
         prediction = self.model(noisy, timesteps, global_cond=observation.flatten(1))
-        return ((prediction - noise).square() * valid_mask[..., None]).sum() / (valid_mask.sum() * 4)
+        target = noise if self.config['prediction_type'] == 'epsilon' else action
+        return ((prediction - target).square() * valid_mask[..., None]).sum() / (valid_mask.sum() * 4)
 
     @torch.no_grad()
     def predict(self, observation, seed):
@@ -61,8 +65,8 @@ class DiffusionPolicy(torch.nn.Module):
                               device=observation.device, dtype=observation.dtype)
         self.scheduler.set_timesteps(self.config['inference_steps'], device=observation.device)
         for timestep in self.scheduler.timesteps:
-            noise = self.model(action, timestep, global_cond=observation.flatten(1))
-            action = self.scheduler.step(noise, timestep, action, eta=0.).prev_sample
+            prediction = self.model(action, timestep, global_cond=observation.flatten(1))
+            action = self.scheduler.step(prediction, timestep, action, eta=0.).prev_sample
         return action
 
     def action_chunk(self, prediction):

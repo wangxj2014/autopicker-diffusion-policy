@@ -35,6 +35,8 @@ def load_policy(path, upstream, device):
     if 'scheduler' in checkpoint['metadata']:
         from diffusers import DDIMScheduler
         policy.scheduler = DDIMScheduler.from_config(checkpoint['metadata']['scheduler'])
+    if policy.scheduler.config.prediction_type != policy.config['prediction_type']:
+        raise ValueError('Checkpoint scheduler and model prediction objective disagree')
     return policy, checkpoint['metadata']
 
 
@@ -78,6 +80,8 @@ def main():
     parser.add_argument('--split', choices=('train', 'all-pilot'), default='train')
     parser.add_argument('--action-normalization', choices=('data', 'physical'), default='data',
                         help='Action affine bounds: selected data extrema or physical joint limits')
+    parser.add_argument('--prediction-type', choices=('epsilon', 'sample'), default='epsilon',
+                        help='Predict diffusion noise or the clean normalized action sequence')
     parser.add_argument('--steps', type=int, default=3000)
     parser.add_argument('--batch-size', type=int, default=64)
     parser.add_argument('--seed', type=int, default=0)
@@ -97,7 +101,7 @@ def main():
     np.random.seed(options.seed)
     torch.manual_seed(options.seed)
     torch.set_num_threads(4)
-    policy = DiffusionPolicy(options.upstream).to(options.device)
+    policy = DiffusionPolicy(options.upstream, prediction_type=options.prediction_type).to(options.device)
     ema = deepcopy(policy).eval()
     optimizer = torch.optim.AdamW(policy.parameters(), lr=options.learning_rate, weight_decay=1e-6)
     options.output.mkdir(parents=True, exist_ok=False)
