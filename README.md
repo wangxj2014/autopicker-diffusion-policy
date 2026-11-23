@@ -4,6 +4,8 @@
 
 当前版本提供仿真场景和基于几何规划的控制基线，尚未包含 Diffusion Policy 网络、训练流程或学习策略推理。
 
+Diffusion Policy 研究已在 `research/diffusion-policy` 分支开始：见[研究方案与实验路线](docs/research/2026-11-22-diffusion-policy.md)及[示范数据与控制接口草案](docs/research/autopicker-dataset-contract.md)。首阶段建议用现有几何控制器录制单臂示范，验证录制、回放和时间对齐，再训练单臂策略；这些学习功能目前尚未实现。
+
 ![四路 RGB、四路深度与彩色点云](outputs/autopicker_fusion_windows.png)
 
 ## 功能说明
