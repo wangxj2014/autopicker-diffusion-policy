@@ -4,7 +4,7 @@
 
 当前版本提供仿真场景和基于几何规划的控制基线，尚未包含 Diffusion Policy 网络、训练流程或学习策略推理。
 
-Diffusion Policy 研究已在 `research/diffusion-policy` 分支开始：见[研究方案与实验路线](docs/research/2026-11-22-diffusion-policy.md)及[示范数据与控制接口草案](docs/research/autopicker-dataset-contract.md)。首阶段建议用现有几何控制器录制单臂示范，验证录制、回放和时间对齐，再训练单臂策略；这些学习功能目前尚未实现。
+Diffusion Policy 研究在 `research/diffusion-policy` 分支开展：已增加独立的单臂示范采集、RGB-D 锁步录制、命令回放和数据审计入口，操作见[研究工具说明](research/README.md)。研究路线与未来训练接口分别见[研究方案](docs/research/2026-11-22-diffusion-policy.md)和[数据契约](docs/research/autopicker-dataset-contract.md)。当前仍未实现策略网络、训练或策略推理。
 
 ![四路 RGB、四路深度与彩色点云](outputs/autopicker_fusion_windows.png)
 
@@ -23,6 +23,7 @@ Diffusion Policy 研究已在 `research/diffusion-policy` 分支开始：见[研
 | 点云交互 | 固定初始观察范围，支持 Yaw / Tilt / Zoom、Fit 和 Clear；暂停保留重建，Stop 清空后可重新扫描 |
 | 模块化运行 | USD 只保存场景，Python 管理控制与相机；统一启动、源码重新加载、重复实例替换、停止重启及关闭清理 |
 | 单文件演示 | 打包器将当前程序嵌入另一个 USD，方便分享；生成过程不修改开发版场景 |
+| 研究数据工具 | R_down 单臂专家示范、480 Hz 状态/动作、10 Hz 锁步 RGB-D、限位执行器、命令重采样回放与数据审计 |
 
 ![果园与设备](outputs/autopicker_apple_preview.png)
 
@@ -49,6 +50,10 @@ work/
   autopicker_rgb_cloud/test_rgb_cloud.py     RGB 点云测试
   autopicker_rgbd/test_depth.py              深度显示测试
   autopicker_modules/                       模块结构与生命周期测试
+research/
+  README.md                                研究采集与回放使用说明
+  autopicker_dp/                           独立任务环境、记录、执行器及命令入口
+  tests/                                   普通 Python 检查与仿真数据验收
 ```
 
 两个 USD 均包含自身所需的模型和材质，无外部 USD 或贴图依赖。开发运行需要保留 `outputs` 中的场景及全部 Python 文件；单文件演示仅需复制 `outputs/dist/autopicker_apple_orchard_demo.usd`。

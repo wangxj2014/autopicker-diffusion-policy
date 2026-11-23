@@ -10,6 +10,9 @@ core
 core.*
 .DS_Store
 Thumbs.db
+/datasets/
+/runs/
+/checkpoints/
 
 /work/*
 !/work/autopicker_fusion/

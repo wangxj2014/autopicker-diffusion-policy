@@ -1,6 +1,6 @@
 # Autopicker 示范数据与控制接口草案 v0.1
 
-配套[研究方案](2026-11-22-diffusion-policy.md)。这是待实现的数据契约；下列字段、采集目录和策略接口尚未存在，现有接口在文中单独指出。第一版范围为 R_down 单臂、固定机身、一个指定目标、无人工抓偏。
+配套[研究方案](2026-11-22-diffusion-policy.md)。本文定义最终训练数据契约；当前 M0 已实现原始 NPZ/JSON 录制和命令回放，格式与命令见[研究工具说明](../../research/README.md)。下文的 Zarr 训练字段和策略接口仍待实现。第一版范围为 R_down 单臂、固定机身、一个指定目标、无人工抓偏。
 
 ## 1. 身份、单位与坐标
 
@@ -53,6 +53,8 @@ base_point   = world_point  @ base_from_world[:3, :3]   + base_from_world[3, :3]
 6. 四路扩展时，相机帧必须具有相同 `capture_id` 和 `reference_time`，且属于同一 reset generation。相同 `reference_time` 的重复提交不能当成新的时间样本。
 
 当前 Viewer 受墙钟刷新节流影响，且未实现状态缓冲。拟新增的采集路径需要独立的仿真采样调度；循环调用 UI 接口十次不等于得到十个有效、等间隔的仿真样本。
+
+M0 实测补充：Writer 原始 `reference_time` 随渲染更新，不等于 `World.current_time`。独立采集器使用同步渲染屏障，检查渲染前后物理时间及十六关节不变，并将渲染矩阵与 PhysX 相机刚体位姿比较；把这一锁步事务绑定到明确的物理步。原始渲染时间和 `exposure_sim_time_s` 均保存，不能把两者直接相减作为同步误差。这个方法只适用于当前锁步仿真，异步部署仍需要独立的时间映射验证。
 
 ## 3. 训练样本格式
 
@@ -113,6 +115,6 @@ base_point   = world_point  @ base_from_world[:3, :3]   + base_from_world[3, :3]
 
 采集与转换完成后，逐 episode 检查：字段长度一致；数值有限且单位正确；时间严格递增；相邻样本满足 dt；对齐误差达标；reset 不串帧；RGB 与深度/内外参同批；关节不越界；收果事件与目标一致；回放成功。
 
-划分清单使用 `(scene_id, target_prim_path)` 分组，同一目标的重复示范只进入一个划分。新场景泛化采用 scene 级留出。目录结构建议为 `datasets/autopicker/<dataset_version>/`，内含 manifest、划分清单、原始记录和转换 Zarr；训练输出置于 `runs/`。这些目录尚未创建，开始采集前应加入 `.gitignore`，数据和权重存到独立存储，并记录内容校验值。
+划分清单使用 `(scene_id, target_prim_path)` 分组，同一目标的重复示范只进入一个划分。新场景泛化采用 scene 级留出。目录结构建议为 `datasets/autopicker/<dataset_version>/`，内含 manifest、划分清单、原始记录和转换 Zarr；训练输出置于 `runs/`。M0 已使用这些目录保存原始回合，并将数据、运行结果和 checkpoint 目录加入 `.gitignore`；训练划分和 Zarr 转换尚未实现。数据和权重存到独立存储，并记录内容校验值。
 
 每次实验保留数据版本、划分、代码版本、模型配置、归一化器、执行器配置、训练种子、策略采样种子、评估目标和 reset 参数、逐回合结果、显存与延迟统计。数据契约、动作 dt 或执行器变更必须升级版本，不复用旧 checkpoint 声称兼容。
