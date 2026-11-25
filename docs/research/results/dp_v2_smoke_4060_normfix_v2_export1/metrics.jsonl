@@ -1,0 +1,1 @@
+{"step": 10, "loss_mean_last100": 1.0778618931770325, "gradient_norm_mean_last100": 3.9759986877441404, "gradient_norm_max_last100": 5.099958419799805, "learning_rate": 0.0001, "cuda_memory_allocated_mb": 96.64501953125, "cuda_memory_reserved_mb": 118.0, "wall_time_s": 0.41240012499838485}

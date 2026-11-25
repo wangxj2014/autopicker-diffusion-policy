@@ -176,6 +176,32 @@ class SplitAndNormalizerTests(unittest.TestCase):
         for key in ('obs', 'action'):
             np.testing.assert_allclose(roundtrip.denormalize(normalized[key], key=key), data[key])
 
+    def test_float32_quantization_spread_is_treated_as_near_constant(self):
+        from autopicker_dp.dataset import Normalizer
+        # This receiver axis varies by a few float32 ULPs around -0.38 m.
+        # Exact-spread detection previously produced a scale of 16,777,216.
+        data = {
+            'obs': np.array([
+                [0.10, -0.38132962584495544],
+                [0.20, -0.3813295066356659],
+            ], dtype=np.float32),
+            'action': np.array([[0.0], [1.0]], dtype=np.float32),
+        }
+        normalizer = Normalizer.fit(data, [2], [0])
+        field = normalizer.fields['obs']
+        self.assertTrue(bool(field['constant'][1]))
+        self.assertEqual(float(field['scale'][1]), 1.0)
+        self.assertFalse(bool(field['constant'][0]))
+        self.assertLess(float(field['scale'][1]), 2.0)
+
+        # Do not clip a real held-out shift: constant dimensions retain
+        # physical-unit deviations instead of being normalized to +/-1.
+        probe = np.array([[0.15, -0.3313295]], dtype=np.float32)
+        normalized = normalizer.normalize(probe, key='obs')
+        self.assertAlmostEqual(float(normalized[0, 1]), 0.05, places=5)
+        restored = normalizer.denormalize(normalized, key='obs')
+        np.testing.assert_allclose(restored, probe, atol=1e-7)
+
     def test_empty_training_selection_and_invalid_ends_fail(self):
         from autopicker_dp.dataset import Normalizer
         data = {'obs': np.ones((3, 2)), 'action': np.ones((3, 1))}

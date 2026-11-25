@@ -124,12 +124,12 @@ def _episode_layout(data, episode_ends, episode_indices):
 
 
 class Normalizer:
-    """Invertible affine min/max scaling with explicitly selected fit episodes.
+    """Invertible affine scaling with float32-aware near-constant detection.
 
-    Variable dimensions map training min/max to [-1, 1]. Constant dimensions
-    use scale=1 and bias=-minimum so held-out deviations remain invertible.
-    No input or output is clipped. Arrays require key='obs' or key='action';
-    dictionaries transform both fields and retain any auxiliary metadata.
+    Variable dimensions map training min/max to [-1, 1]. Constant or
+    float32-precision near-constant dimensions use scale=1 and bias=-minimum,
+    preserving meaningful held-out deviations without amplifying quantization
+    noise. No input or output is clipped.
     """
     def __init__(self, fields, fit_metadata):
         self.fields = fields
@@ -147,7 +147,15 @@ class Normalizer:
             minimum = train.min(axis=0).astype(np.float64)
             maximum = train.max(axis=0).astype(np.float64)
             spread = maximum - minimum
-            constant = spread == 0
+            # Dataset observations/actions are stored as float32. Several ULPs
+            # of spread can arise even when a physical field is effectively
+            # fixed (for example, a receiver axis in a planar setup). Treat
+            # that representational jitter as constant instead of multiplying
+            # it by an enormous min/max scale. Held-out deviations remain
+            # un-clipped and are expressed in the original physical units.
+            precision_atol = (8. * np.finfo(np.float32).eps
+                              * np.maximum(1., np.maximum(np.abs(minimum), np.abs(maximum))))
+            constant = spread <= precision_atol
             scale = np.ones_like(spread)
             np.divide(2., spread, out=scale, where=~constant)
             bias = np.where(constant, -minimum, -1. - minimum * scale)
@@ -155,8 +163,8 @@ class Normalizer:
                            'bias': bias, 'constant': constant}
         return cls(fields, {'episode_indices': selected.tolist(),
                             'row_count': int(np.sum(ends[selected] - starts[selected])),
-                            'method': 'train-selected per-dimension affine minmax',
-                            'constant_dimensions': 'scale=1, bias=-training_min',
+                            'method': 'train-selected per-dimension affine minmax with float32 near-constant detection',
+                            'constant_dimensions': 'spread <= 8*float32_eps*max(1, abs(min), abs(max)); scale=1, bias=-training_min',
                             'clip': False})
 
     def with_action_limits(self, lower, upper):
@@ -443,7 +451,7 @@ def load_dataset(path):
     loaded = LoadedDataset(arrays, ends, manifest, normalizer)
     expected = Normalizer.fit(arrays, ends, loaded.episode_indices('train'))
     if normalizer.to_dict() != expected.to_dict():
-        raise ValueError('Stored normalizer does not match train-only statistics')
+        raise ValueError('Stored normalizer does not match the current train-only normalization algorithm; rebuild the dataset from its raw episode source into a new output directory')
     return loaded
 
 
