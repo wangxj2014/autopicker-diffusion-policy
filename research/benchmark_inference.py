@@ -153,7 +153,8 @@ def benchmark(options):
                     if device.type == "cuda":
                         torch.cuda.synchronize(device)
                     latency_ms = (time.perf_counter() - start) * 1000.0
-                    chunk = policy.action_chunk(prediction)[0].detach().float().cpu().numpy()
+                    normalized_chunk = policy.action_chunk(prediction)[0].detach().float().cpu().numpy()
+                    chunk = normalizer.denormalize(normalized_chunk, key="action")
                     timings[steps].append(latency_ms)
                     records.append({
                         "sequence_index": int(sample_index),
@@ -177,19 +178,37 @@ def benchmark(options):
 
     reference = int(options.reference_steps)
     reference_outputs = outputs[reference]
+    source_configuration = dataset.manifest["source_configuration"]
+    joint_names = source_configuration["joint_names"]
+    joint_units = source_configuration["joint_units"]
     action_deviation = {}
     for steps in steps_list:
-        errors = []
-        for sample in windows:
-            sample_index = sample["sequence_index"]
-            difference = outputs[steps][sample_index] - reference_outputs[sample_index]
-            errors.append(difference.reshape(-1))
-        errors = np.concatenate(errors)
+        if steps == reference:
+            action_deviation[str(steps)] = {
+                "reference_steps": reference,
+                "joint_differences": {
+                    name: {"unit": unit, "mean_absolute_difference": 0.0,
+                           "root_mean_square_difference": 0.0, "max_absolute_difference": 0.0}
+                    for name, unit in zip(joint_names, joint_units)
+                },
+            }
+            continue
+        differences = np.stack([
+            outputs[steps][sample["sequence_index"]] -
+            reference_outputs[sample["sequence_index"]]
+            for sample in windows
+        ], axis=0)
         action_deviation[str(steps)] = {
             "reference_steps": reference,
-            "mean_absolute_difference": float(np.mean(np.abs(errors))),
-            "root_mean_square_difference": float(np.sqrt(np.mean(errors ** 2))),
-            "max_absolute_difference": float(np.max(np.abs(errors))),
+            "joint_differences": {
+                name: {
+                    "unit": unit,
+                    "mean_absolute_difference": float(np.mean(np.abs(differences[..., index]))),
+                    "root_mean_square_difference": float(np.sqrt(np.mean(differences[..., index] ** 2))),
+                    "max_absolute_difference": float(np.max(np.abs(differences[..., index]))),
+                }
+                for index, (name, unit) in enumerate(zip(joint_names, joint_units))
+            },
         }
     report = {
         "schema": "autopicker-inference-benchmark-v1",
@@ -201,7 +220,16 @@ def benchmark(options):
         "device": str(device), "gpu_name": torch.cuda.get_device_name(device) if device.type == "cuda" else None,
         "steps": steps_list, "reference_steps": reference,
         "latency_ms": {str(steps): percentile_summary(timings[steps]) for steps in steps_list},
-        "action_deviation_vs_reference": action_deviation,
+        "speedup_vs_reference_p50": {
+            str(steps): float(percentile_summary(timings[reference])["p50"] /
+                              percentile_summary(timings[steps])["p50"])
+            for steps in steps_list
+        },
+        "action_deviation_vs_reference_physical_units": action_deviation,
+        "action_features": [
+            {"index": index, "name": name, "unit": unit}
+            for index, (name, unit) in enumerate(zip(joint_names, joint_units))
+        ],
         "cuda_peak_allocated_mb": {str(k): v / 1048576 for k, v in cuda_peak_allocated.items()},
         "cuda_peak_reserved_mb": {str(k): v / 1048576 for k, v in cuda_peak_reserved.items()},
         "resource_monitor": resource_summary,
@@ -232,9 +260,9 @@ def main():
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--steps", type=int, nargs="+", default=[5, 10, 20])
     parser.add_argument("--reference-steps", type=int, default=20)
-    parser.add_argument("--max-samples", type=int, default=16)
-    parser.add_argument("--warmup", type=int, default=3)
-    parser.add_argument("--repeats", type=int, default=2)
+    parser.add_argument("--max-samples", type=int, default=32)
+    parser.add_argument("--warmup", type=int, default=5)
+    parser.add_argument("--repeats", type=int, default=4)
     parser.add_argument("--seed", type=int, default=0)
     options = parser.parse_args()
     if options.max_samples < 1 or options.warmup < 0 or options.repeats < 1:
