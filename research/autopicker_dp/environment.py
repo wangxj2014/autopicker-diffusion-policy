@@ -20,7 +20,7 @@ class PickingEnvironment:
     def __init__(self, scene, arm_name='R_down', speed_scale=1.):
         import omni.usd
         from isaacsim.core.api import World
-        from autopicker_apple_pick import AutopickerApplePick, PHYSICS_DT
+        from autopicker_apple_pick import AutopickerApplePick, PHYSICS_DT, JointChain, ARM_PREFIXES
 
         self.scene = Path(scene).resolve()
         if arm_name not in ('L_down', 'L_up', 'R_down', 'R_up'):
@@ -38,6 +38,14 @@ class PickingEnvironment:
         self.demo = AutopickerApplePick({'asset_path': str(self.scene), 'speed_scale': self.drive_speed_scale,
                                          'grasp_error_every': 0, 'cycles': 1})
         self.demo.prepare(self.stage)
+        from pxr import UsdGeom
+        root = self.stage.GetPrimAtPath('/World/Autopicker')
+        translate_ops = [op for op in UsdGeom.Xformable(root).GetOrderedXformOps()
+                         if op.GetOpType() == UsdGeom.XformOp.TypeTranslate]
+        if len(translate_ops) != 1:
+            raise RuntimeError('Expected one root translate op on /World/Autopicker')
+        self.base_root_translate = np.asarray(translate_ops[0].Get(), dtype=float)
+        self.base_x_offset = 0.0
         self.demo.config['speed_scale'] = speed_scale
         self.world.reset()
         self.demo.initialize()
@@ -48,26 +56,84 @@ class PickingEnvironment:
         self.generation = 0
         self.episode = None
 
-    def targets(self, count):
+    def base_x_offset_for_tree(self, tree_name):
+        if tree_name not in ('Tree_01', 'Tree_02', 'Tree_03'):
+            raise ValueError(f'Unknown orchard tree: {tree_name}')
+        side = 'Left' if self.arm_name.startswith('L_') else 'Right'
+        centers = {}
+        for name in ('Tree_01', 'Tree_02', 'Tree_03'):
+            values = [entry['world'][0] for entry in self.demo.pool.entries
+                      if entry['side'] == side and f'/{name}/' in entry['path']]
+            if not values:
+                raise ValueError(f'No apples found for {side}/{name}')
+            centers[name] = float(np.median(values))
+        # Tree_02 is the original calibrated docking position (zero offset).
+        return centers[tree_name] - centers['Tree_02']
+
+    def targets(self, count, base_x_offset=0.0, tree_name=None, approach_angle=30.0,
+                approach_distance=0.12, allow_fewer=False):
+        self._reset_controller(base_x_offset)
+        self.arm = next(arm for arm in self.demo.arms if arm['chain'].prefix == self.arm_name)
         selected = []
-        for _ in range(count):
-            result = self.demo.pool.reserve(self.arm['chain'], self.arm['home'],
-                                           approach_angle=30., approach_distance=.12)
-            if result is None:
-                break
-            selected.append(result[0]['path'])
-        self.demo.pool.reset()
-        if len(selected) < count:
-            raise ValueError(f'Only {len(selected)} reachable targets found; requested {count}')
+        original_entries = self.demo.pool.entries
+        if tree_name is not None:
+            if tree_name not in ('Tree_01', 'Tree_02', 'Tree_03'):
+                raise ValueError(f'Unknown orchard tree: {tree_name}')
+            side = 'Left' if self.arm_name.startswith('L_') else 'Right'
+            self.demo.pool.entries = [entry for entry in original_entries
+                                      if entry['side'] == side and f'/{tree_name}/' in entry['path']]
+        try:
+            for _ in range(count):
+                result = self.demo.pool.reserve(self.arm['chain'], self.arm['home'],
+                                                approach_angle=approach_angle,
+                                                approach_distance=approach_distance)
+                if result is None:
+                    break
+                selected.append(result[0]['path'])
+        finally:
+            self.demo.pool.entries = original_entries
+            self.demo.pool.reset()
+        if len(selected) < count and not allow_fewer:
+            raise ValueError(f'Only {len(selected)} reachable targets found for {tree_name or "all trees"} '
+                             f'at {approach_angle:g} degrees; requested {count}')
         return selected
 
-    def _reset_controller(self):
+    def varied_initial_positions(self, seed, variation=0.5):
+        if not np.isfinite(variation) or not 0.0 <= variation <= 1.0:
+            raise ValueError('initial variation must be in [0, 1]')
+        initial = self.reset_positions.copy()
+        rng = np.random.default_rng(seed)
+        scales = np.array([0.06, 0.025, 0.025, 0.12]) * variation
+        candidate = initial[self.arm['indices']] + rng.uniform(-scales, scales)
+        candidate = np.clip(candidate, self.arm['chain'].lower + 0.04,
+                            self.arm['chain'].upper - 0.04)
+        initial[self.arm['indices']] = candidate
+        return initial
+
+    def _set_base_x_offset(self, base_x_offset):
+        from pxr import Gf, UsdGeom
+        if not np.isfinite(base_x_offset):
+            raise ValueError('Base X offset must be finite')
+        root = self.stage.GetPrimAtPath('/World/Autopicker')
+        ops = [op for op in UsdGeom.Xformable(root).GetOrderedXformOps()
+               if op.GetOpType() == UsdGeom.XformOp.TypeTranslate]
+        if len(ops) != 1:
+            raise RuntimeError('Expected one root translate op on /World/Autopicker')
+        original = self.base_root_translate
+        ops[0].Set(Gf.Vec3d(float(original[0] + base_x_offset),
+                            float(original[1]), float(original[2])))
+        self.base_x_offset = float(base_x_offset)
+
+    def _reset_controller(self, base_x_offset=0.0):
         for marker in self.demo.markers:
             marker.entry = None
         self.demo.pool.reset()
         self.demo.interaction.reset()
         self.demo.robot.destroy()
+        self._set_base_x_offset(base_x_offset)
         self.world.reset()
+        container = self.stage.GetPrimAtPath(self.demo.robot_path)
+        self.demo.chains = [JointChain(self.stage, container, prefix) for prefix in ARM_PREFIXES]
         self.demo.arms.clear()
         self.demo.records.clear()
         self.demo.initialize()
@@ -105,11 +171,11 @@ class PickingEnvironment:
                 'inactive_fallen_count': inactive_fallen, 'max_world_error_m': max_world_error,
                 'max_local_error_m': max_local_error}
 
-    def reset(self, target_path, reset_positions=None):
+    def reset(self, target_path, reset_positions=None, base_x_offset=0.0, approach_angle=30.0, approach_distance=0.12):
         from pxr import Gf
         import omni.timeline
 
-        self._reset_controller()
+        self._reset_controller(base_x_offset)
         self.arm = next(arm for arm in self.demo.arms if arm['chain'].prefix == self.arm_name)
         for arm in self.demo.arms:
             arm['phase'] = 'done'
@@ -134,7 +200,11 @@ class PickingEnvironment:
         self.arm['apple_path'] = target_path
         self.demo.markers[self.arm['index']].bind(self.entry)
         self.arm['attached'] = False
-        self.direction = self.arm['chain'].approach_direction(30.)
+        self.approach_angle_degrees = float(approach_angle)
+        self.approach_distance_m = float(approach_distance)
+        if not 0.0 < self.approach_angle_degrees < 90.0 or not 0.01 <= self.approach_distance_m <= 0.3:
+            raise ValueError('Invalid approach angle or distance')
+        self.direction = self.arm['chain'].approach_direction(self.approach_angle_degrees)
         self.executor = JointExecutor(self.arm['chain'].lower, self.arm['chain'].upper,
                                       self.demo.velocity, self.demo.acceleration, self.dt)
         self.executor.reset(self.positions())
@@ -228,7 +298,9 @@ class ExpertPlanner:
     def __init__(self, environment):
         self.env = environment
         arm = environment.arm
-        self.path = arm['chain'].plan_approach(environment.entry['world'], environment.positions(), 30., .12)
+        self.path = arm['chain'].plan_approach(environment.entry['world'], environment.positions(),
+                                                 environment.approach_angle_degrees,
+                                                 environment.approach_distance_m)
         self.phase = 'pregrasp'
         self.begin(self.path[0])
 
