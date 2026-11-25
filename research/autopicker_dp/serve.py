@@ -20,9 +20,13 @@ def main():
     parser.add_argument('--upstream', type=Path, required=True)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--device', default='cuda')
+    parser.add_argument('--inference-steps', type=int, default=None,
+                        help='Override checkpoint DDIM inference steps (1-100)')
     options = parser.parse_args()
     torch.set_num_threads(2)
     policy, metadata = load_policy(options.checkpoint, options.upstream, options.device)
+    if options.inference_steps is not None:
+        policy.set_inference_steps(options.inference_steps)
     normalizer = Normalizer.from_dict(metadata['normalizer'])
     policy.predict(torch.zeros((1, 2, 15), device=options.device), seed=options.seed)
     print(json.dumps({'status': 'ready', 'checkpoint_sha256': hashlib.sha256(options.checkpoint.read_bytes()).hexdigest(),
