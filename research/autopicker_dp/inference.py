@@ -14,6 +14,18 @@ import numpy as np
 SEED_FIELDS = ('source_episode_index', 'episode_request_index', 'noise_seed')
 
 
+def inference_process_command(python, checkpoint, upstream, seed, inference_steps=None):
+    """Build the isolated policy-server command with an optional DDIM override."""
+    if inference_steps is not None and (type(inference_steps) is not int
+                                        or not 1 <= inference_steps <= 100):
+        raise ValueError('Inference steps must be an integer in [1, 100]')
+    command = [str(python), '-I', str(Path(__file__).with_name('serve.py')),
+               '--checkpoint', str(checkpoint), '--upstream', str(upstream), '--seed', str(seed)]
+    if inference_steps is not None:
+        command += ['--inference-steps', str(inference_steps)]
+    return command
+
+
 def episode_noise_seed(base_seed, source_index, local_index):
     if (any(type(value) is not int for value in (base_seed, source_index, local_index))
             or source_index < 0 or local_index < 0):
@@ -68,8 +80,10 @@ class ActionLoop:
 
 
 class PolicyClient:
-    def __init__(self, python, checkpoint, upstream, seed, log_path, timeout=60.):
+    def __init__(self, python, checkpoint, upstream, seed, log_path, timeout=60., inference_steps=None):
         self.timeout = timeout
+        self.requested_inference_steps = inference_steps
+        command = inference_process_command(python, checkpoint, upstream, seed, inference_steps)
         self.responses = Queue()
         self.sequence = 0
         self.attempts = []
@@ -78,9 +92,7 @@ class PolicyClient:
         self.log = Path(log_path).open('w', encoding='utf-8')
         # Isaac exports its own PYTHONHOME/PYTHONPATH (Python 3.11). Isolated
         # mode keeps the selected training interpreter's stdlib/site packages.
-        self.process = subprocess.Popen([str(python), '-I', str(Path(__file__).with_name('serve.py')),
-                                         '--checkpoint', str(checkpoint), '--upstream', str(upstream),
-                                         '--seed', str(seed)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=self.log, text=True, bufsize=1)
         def read():
             for line in self.process.stdout:
@@ -92,6 +104,11 @@ class PolicyClient:
             self.ready = self._receive()
             if self.ready.get('status') != 'ready':
                 raise RuntimeError('Policy process did not initialize')
+            self.policy_config = self.ready.get('policy_config', {})
+            self.inference_steps = self.policy_config.get('inference_steps')
+            if (self.requested_inference_steps is not None
+                    and self.inference_steps != self.requested_inference_steps):
+                raise RuntimeError('Inference server did not apply the requested DDIM step count')
         except Exception:
             self.close()
             raise
