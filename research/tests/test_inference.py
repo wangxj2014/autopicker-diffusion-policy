@@ -23,9 +23,11 @@ class OnlineActionTests(unittest.TestCase):
         loop.reset(7, np.zeros(4))
         first = loop.command(0, np.zeros(15), np.zeros(4), .1)
         np.testing.assert_array_equal(first, np.zeros(4))
-        # At the next replan, the executor is still short of the previous
-        # predicted endpoint. The new chunk must begin at the measured executor
-        # position, not at the stale predicted endpoint.
+        # Advance one observation without replanning so the two-frame history
+        # at the next request contains the current observation twice.
+        loop.command(1, np.ones(15), np.zeros(4), .1)
+        # The executor is still short of the previous predicted endpoint. The
+        # new chunk must begin at its measured position, not the stale endpoint.
         replanned = loop.command(2, np.ones(15), np.full(4, .15), .1)
         np.testing.assert_allclose(replanned, np.full(4, .15))
         np.testing.assert_array_equal(calls[0][0], np.zeros((2, 15)))
