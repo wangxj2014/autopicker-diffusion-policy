@@ -22,6 +22,15 @@ class PolicyTests(unittest.TestCase):
         return DiffusionPolicy(os.environ['AUTOPICKER_DP_UPSTREAM'], down_dims=(16, 32),
                                diffusion_step_embed_dim=16, inference_steps=5)
 
+    def test_inference_steps_override_is_validated(self):
+        policy = self.policy()
+        self.assertEqual(policy.config['inference_steps'], 5)
+        policy.set_inference_steps(10)
+        self.assertEqual(policy.config['inference_steps'], 10)
+        for invalid in (0, 101, 5.0, True):
+            with self.assertRaises(ValueError):
+                policy.set_inference_steps(invalid)
+
     def test_noise_loss_backward_and_padding_mask(self):
         import torch
         policy = self.policy()

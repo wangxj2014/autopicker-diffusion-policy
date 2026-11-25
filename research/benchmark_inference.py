@@ -134,7 +134,7 @@ def benchmark(options):
     records = []
     try:
         for steps in steps_list:
-            policy.config["inference_steps"] = steps
+            policy.set_inference_steps(steps)
             if device.type == "cuda":
                 torch.cuda.reset_peak_memory_stats(device)
             for tensor_index, sample in enumerate(windows):

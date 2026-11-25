@@ -44,6 +44,12 @@ class DiffusionPolicy(torch.nn.Module):
                                         clip_sample=True, prediction_type=prediction_type,
                                         set_alpha_to_one=True, steps_offset=0)
 
+    def set_inference_steps(self, inference_steps):
+        """Override DDIM sampling steps for a controlled rollout or benchmark."""
+        if type(inference_steps) is not int or not 1 <= inference_steps <= 100:
+            raise ValueError('Inference steps must be an integer in [1, 100]')
+        self.config['inference_steps'] = inference_steps
+
     def loss(self, observation, action, valid_mask):
         if (observation.shape != (len(action), 2, 15) or action.shape[1:] != (16, 4)
                 or valid_mask.shape != action.shape[:2] or not valid_mask.any()

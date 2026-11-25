@@ -98,6 +98,8 @@ def main():
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--seed-mode', choices=('global', 'episode'), default='global',
                         help='episode fixes noise by trial seed, source episode and local request index')
+    parser.add_argument('--inference-steps', type=int, default=None,
+                        help='Override checkpoint DDIM steps for policy/hybrid rollout (1-100)')
     parser.add_argument('--timeout', type=float, default=35.)
     parser.add_argument('--scene', type=Path, default=ROOT / 'outputs/autopicker_apple_orchard.usd')
     parser.add_argument('--headless', action='store_true')
@@ -105,6 +107,11 @@ def main():
     if (not np.isfinite(options.timeout) or options.timeout <= 0
             or options.max_episodes is not None and options.max_episodes < 1):
         parser.error('Require positive finite timeout and positive episode count')
+    if options.inference_steps is not None:
+        if type(options.inference_steps) is not int or not 1 <= options.inference_steps <= 100:
+            parser.error('--inference-steps must be an integer in [1, 100]')
+        if options.mode == 'converted-replay':
+            parser.error('--inference-steps is only valid for policy/hybrid modes')
     if options.mode != 'converted-replay' and any(value is None for value in
                                        (options.checkpoint, options.inference_python, options.upstream)):
         parser.error('Policy needs --checkpoint, --inference-python, --upstream')
@@ -147,13 +154,15 @@ def main():
     try:
         if options.mode != 'converted-replay':
             client = PolicyClient(options.inference_python, options.checkpoint, options.upstream,
-                                  options.seed, options.output / 'inference.log')
+                                  options.seed, options.output / 'inference.log',
+                                  inference_steps=options.inference_steps)
             trained = client.ready['metadata']
             if trained['dataset_sha256'] != dataset_hash or trained['dt'] != dataset.manifest['dt']:
                 raise ValueError('Checkpoint data identity or action rate differs from rollout')
             summary.update(checkpoint_sha256=client.ready['checkpoint_sha256'],
                            training_split=trained['split'], training_seed=trained['seed'],
                            training_scope=trained['scope'],
+                           inference_steps=client.inference_steps,
                            inference_runtime=trained.get('versions'),
                            observation_augmentation=trained.get('observation_augmentation'))
             if trained['split'] == 'all-pilot':
@@ -201,6 +210,7 @@ def main():
             extra = {'mode': options.mode, 'dataset_sha256': dataset_hash,
                      'checkpoint_sha256': summary['checkpoint_sha256'], 'rollout_seed': options.seed,
                      'seed_mode': options.seed_mode,
+                     'inference_steps': client.inference_steps if client is not None else None,
                      'source_episode_index': index, 'source_split': source['split'],
                      'evaluation_scope': summary['scope'], 'policy_dt': dataset.manifest['dt'],
                      'observation_semantics': dataset.manifest['observation_semantics']}
