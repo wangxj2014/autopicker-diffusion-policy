@@ -9,6 +9,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 class RolloutTests(unittest.TestCase):
+    def test_provider_snapshots_only_its_own_inference_attempts(self):
+        from autopicker_dp.rollout import LivePolicy
+        client = SimpleNamespace(sequence=5, attempts=[{'request_id': 5}], predict=lambda *args: None)
+        env = SimpleNamespace(generation=1, executor=SimpleNamespace(position=np.zeros(4)),
+                              arm={'chain': SimpleNamespace(lower=-np.ones(4), upper=np.ones(4))})
+        provider = LivePolicy(client, env, .1, np.eye(4))
+        self.assertTrue(hasattr(provider, 'inference_audit'), 'Attempt snapshot is missing')
+        client.sequence = 6
+        client.attempts.append({'request_id': 6})
+        snapshot = provider.inference_audit()
+        self.assertEqual(snapshot, {'inference_request_start': 5, 'inference_request_end': 6,
+                                    'inference_attempts': [{'request_id': 6}]})
+
     def test_converted_replay_uses_next_node_labels_and_holds_last_node(self):
         from autopicker_dp.rollout import ConvertedReplay
         data = {'action_time_s': np.array([.1, .2]),

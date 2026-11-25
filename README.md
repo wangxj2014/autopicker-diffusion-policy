@@ -6,6 +6,8 @@
 
 Diffusion Policy 研究在 `research/diffusion-policy` 分支开展：支持单臂示范采集、RGB-D 锁步录制、Zarr 数据转换、官方 U-Net 适配训练、checkpoint 重载及独立进程策略推理，操作见[研究工具说明](research/README.md)。研究路线与接口草案分别见[研究方案](docs/research/2026-11-22-diffusion-policy.md)和[数据契约](docs/research/autopicker-dataset-contract.md)。当前实验使用真值低维输入；纯策略结果见 [M5 报告](docs/research/2026-11-23-m5-validation.md)。新增精抓接管与抓取事件门控的混合模式：三个已见目标抓取 3/3、放果 2/3，留出目标仍为 0/2；它使用传统 IK，不能算作纯扩散策略成功，详见 [M6 报告](docs/research/2026-11-23-m6-validation.md)。
 
+M7 新增受姿态约束的提前精抓接管与逐回合推理种子隔离，当前为 **experimental**：代码及 CPU 检查通过，GPU 驱动要求重启，20 次新闭环尚未运行。详见 [M7 准备与阻塞记录](docs/research/2026-11-25-m7-readiness.md)。
+
 ![四路 RGB、四路深度与彩色点云](outputs/autopicker_fusion_windows.png)
 
 ## 功能说明

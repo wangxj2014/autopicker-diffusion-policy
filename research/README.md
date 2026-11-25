@@ -216,6 +216,19 @@ work/autopicker_train_env/bin/python research/tests/validate_m6.py --output work
 
 M6 已见目标抓取 3/3、放果 2/3；第三次抓取较晚、回撤超时。留出目标未进入接管区，仍为 0/2。抓取门槛保持 3 mm/1°、收果 25 mm、超时 35 s。早停推理改变了后续回合 request_id，不能将本轮视作逐请求相同随机数的消融。事件日志包含每段传统轨迹的起点、目标、时长；审计重建接管后的所有施加命令并核对 capture 与回撤同帧。完整结果与诊断限制见 [M6 报告](../docs/research/2026-11-23-m6-validation.md)。
 
+## M7：姿态约束的提前接管（experimental）
+
+`--mode hybrid-corridor` 在原 30 mm 入口之外增加 120 mm 距离、20 mm 横向偏差、5° 姿态误差及正确接近方向约束。满足后沿用锁存 IK 和真实 capture 事件回撤。`--seed-mode episode` 按 trial seed、source episode、局部请求序号固定噪声，消除之前回合长度对后续随机数的影响；默认 `hybrid` / `global` 保持旧逻辑。
+
+本轮 98 项测试及真实 CPU 推理协议检查通过；GPU 驱动故障要求重启，**新增闭环 0/20，未证明成功率提高**。历史轨迹检查与恢复说明见 [M7 记录](../docs/research/2026-11-25-m7-readiness.md)。恢复 GPU 后运行预先固定的两个控制器 × 两个种子 × 五个来源回合：
+
+```bash
+work/autopicker_train_env/bin/python research/run_m7.py             # 仅查看矩阵
+work/autopicker_train_env/bin/python research/run_m7.py --execute   # 顺序仿真及审计
+```
+
+runner 不覆盖部分完成记录，只复用源码/来源相同的已完成组。结果写入 `runs/autopicker/m7_*`；完成全部 20 次后，审计器才生成 `docs/research/2026-11-25-m7-validation.json`。M6 完整产物审计绑定历史源码，请在 `29df26c` 上运行原 M6 复现命令。
+
 ## 范围与下一步
 
 这些是固定场景、单臂、真值输入和视觉吸附条件下的工程验证。即使拟合成功，也仍需要更多独立目标/场景、扰动示范、多个训练种子、基线及视觉感知实验，才能支持论文结论。

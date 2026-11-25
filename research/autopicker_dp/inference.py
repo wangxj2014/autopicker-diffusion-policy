@@ -1,5 +1,6 @@
 """Lockstep JSON inference and endpoint action interpolation without Isaac imports."""
 from collections import deque
+import hashlib
 import json
 from pathlib import Path
 from queue import Queue, Empty
@@ -8,6 +9,17 @@ import threading
 import time
 
 import numpy as np
+
+
+SEED_FIELDS = ('source_episode_index', 'episode_request_index', 'noise_seed')
+
+
+def episode_noise_seed(base_seed, source_index, local_index):
+    if (any(type(value) is not int for value in (base_seed, source_index, local_index))
+            or source_index < 0 or local_index < 0):
+        raise ValueError('Episode seeds require integer seed and nonnegative integer indices')
+    payload = f'autopicker-episode-v1:{base_seed}:{source_index}:{local_index}'.encode()
+    return int.from_bytes(hashlib.sha256(payload).digest()[:4], 'big')
 
 
 class ActionLoop:
@@ -60,6 +72,9 @@ class PolicyClient:
         self.timeout = timeout
         self.responses = Queue()
         self.sequence = 0
+        self.attempts = []
+        self.base_seed = seed
+        self.source_episode_index = None
         self.log = Path(log_path).open('w', encoding='utf-8')
         # Isaac exports its own PYTHONHOME/PYTHONPATH (Python 3.11). Isolated
         # mode keeps the selected training interpreter's stdlib/site packages.
@@ -90,15 +105,29 @@ class PolicyClient:
             raise RuntimeError('Policy process exited; inspect inference log')
         return json.loads(line)
 
+    def reset_episode(self, source_index):
+        episode_noise_seed(self.base_seed, source_index, 0)
+        self.source_episode_index = source_index
+        self.episode_request_index = 0
+
     def predict(self, observation, generation, timestamp):
         self.sequence += 1
         request = {'request_id': self.sequence, 'generation': generation,
                    'time_s': timestamp, 'obs': observation.tolist()}
+        if getattr(self, 'source_episode_index', None) is not None:
+            request.update(source_episode_index=self.source_episode_index,
+                           episode_request_index=self.episode_request_index,
+                           noise_seed=episode_noise_seed(self.base_seed, self.source_episode_index,
+                                                         self.episode_request_index))
+            self.episode_request_index += 1
+        identity = ('request_id', 'generation', 'time_s') + tuple(k for k in SEED_FIELDS if k in request)
+        self.attempts.append({key: request[key] for key in identity})
         self.process.stdin.write(json.dumps(request, allow_nan=False) + '\n')
         self.process.stdin.flush()
         response = self._receive()
-        if any(response.get(key) != request[key] for key in ('request_id', 'generation', 'time_s')):
+        if any(response.get(key) != request[key] for key in identity):
             raise RuntimeError('Stale or mismatched policy response')
+        self.last_request_identity = {key: request[key] for key in identity}
         return response['action']
 
     def close(self):

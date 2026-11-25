@@ -38,9 +38,14 @@ class FailurePersistenceTests(unittest.TestCase):
             max_inactive_drift=0., record_state=Mock(side_effect=ValueError('Nonfinite joint state')))
         with tempfile.TemporaryDirectory() as folder:
             directory = Path(folder) / 'failed_episode'
+            provider = SimpleNamespace(requests=[], inference_audit=lambda: {
+                'inference_request_start': 0, 'inference_request_end': 1,
+                'inference_attempts': [{'request_id': 1}]})
             with self.assertRaisesRegex(RuntimeError, 'data audit'):
-                finish_episode(environment, directory, 'Nonfinite joint state', time.monotonic())
+                finish_episode(environment, directory, 'Nonfinite joint state', time.monotonic(), provider)
             failure = json.loads((directory / 'failure.json').read_text())
+            self.assertEqual(failure['metadata']['inference_attempts'], [{'request_id': 1}])
+            self.assertEqual(failure['metadata']['inference_request_end'], 1)
             self.assertIn('Nonfinite joint state', failure['reason'])
             self.assertEqual(failure['events'][-1]['kind'], 'failure')
             self.assertFalse((directory / 'episode.json').exists())

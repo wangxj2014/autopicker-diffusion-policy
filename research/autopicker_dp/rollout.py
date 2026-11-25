@@ -62,16 +62,21 @@ class ConvertedReplay:
 class LivePolicy:
     def __init__(self, client, env, dt, inverse):
         self.inverse, self.client = inverse, client
+        self.request_start, self.attempt_start = client.sequence, len(client.attempts)
         self.loop = ActionLoop(client.predict, dt, env.arm['chain'].lower, env.arm['chain'].upper)
         self.loop.reset(env.generation, env.executor.position)
         self.requests = self.loop.requests
+
+    def inference_audit(self):
+        return {'inference_request_start': self.request_start, 'inference_request_end': self.client.sequence,
+                'inference_attempts': self.client.attempts[self.attempt_start:]}
 
     def command(self, env):
         generation, steps, world_time = env.generation, env.steps, float(env.world.current_time)
         command = self.loop.command(steps, live_observation(env, self.inverse),
                                     env.executor.position, env.dt)
         if self.requests and self.requests[-1]['time_s'] == env.time:
-            self.requests[-1]['request_id'] = self.client.sequence
+            self.requests[-1].update(self.client.last_request_identity)
         if (env.generation != generation or env.steps != steps
                 or float(env.world.current_time) != world_time):
             raise RuntimeError('Simulation advanced during policy inference')
@@ -80,7 +85,7 @@ class LivePolicy:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--mode', choices=('converted-replay', 'policy', 'hybrid'), required=True,
+    parser.add_argument('--mode', choices=('converted-replay', 'policy', 'hybrid', 'hybrid-corridor'), required=True,
                         help='hybrid uses diffusion only for coarse approach, then oracle IK and event-gated return')
     parser.add_argument('--dataset', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
@@ -90,6 +95,8 @@ def main():
     parser.add_argument('--split', choices=('train', 'val', 'test', 'all-pilot'), default='val')
     parser.add_argument('--max-episodes', type=int)
     parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--seed-mode', choices=('global', 'episode'), default='global',
+                        help='episode fixes noise by trial seed, source episode and local request index')
     parser.add_argument('--timeout', type=float, default=35.)
     parser.add_argument('--scene', type=Path, default=ROOT / 'outputs/autopicker_apple_orchard.usd')
     parser.add_argument('--headless', action='store_true')
@@ -97,7 +104,7 @@ def main():
     if (not np.isfinite(options.timeout) or options.timeout <= 0
             or options.max_episodes is not None and options.max_episodes < 1):
         parser.error('Require positive finite timeout and positive episode count')
-    if options.mode in ('policy', 'hybrid') and any(value is None for value in
+    if options.mode != 'converted-replay' and any(value is None for value in
                                        (options.checkpoint, options.inference_python, options.upstream)):
         parser.error('Policy needs --checkpoint, --inference-python, --upstream')
     dataset, dataset_hash = verified_sources(options.dataset)
@@ -111,17 +118,19 @@ def main():
     if not indices:
         raise ValueError('No episodes selected')
     options.output.mkdir(parents=True, exist_ok=False)
-    summary = {'mode': options.mode, 'split': options.split, 'seed': options.seed,
+    summary = {'mode': options.mode, 'split': options.split, 'seed': options.seed, 'seed_mode': options.seed_mode,
                'requested': len(indices), 'attempted': 0, 'successes': 0, 'results': [],
                'dataset_sha256': dataset_hash, 'checkpoint_sha256': None,
                'scope': 'oracle lowdim, fixed scene/reset, pilot only', 'completed': False}
-    if options.mode == 'hybrid':
-        from autopicker_dp.hybrid import HYBRID_CONFIG, HybridPolicy
-        summary.update(hybrid_configuration=dict(HYBRID_CONFIG),
+    if options.mode in ('hybrid', 'hybrid-corridor'):
+        from autopicker_dp.hybrid import HYBRID_CONFIG, CORRIDOR_CONFIG, HybridPolicy, CorridorHybridPolicy
+        hybrid_config = HYBRID_CONFIG if options.mode == 'hybrid' else CORRIDOR_CONFIG
+        hybrid_class = HybridPolicy if options.mode == 'hybrid' else CorridorHybridPolicy
+        summary.update(hybrid_configuration=dict(hybrid_config),
                        scope='hybrid: diffusion coarse approach + oracle IK precision + event-gated classical return; fixed scene')
     client = app = env = None
     try:
-        if options.mode in ('policy', 'hybrid'):
+        if options.mode != 'converted-replay':
             client = PolicyClient(options.inference_python, options.checkpoint, options.upstream,
                                   options.seed, options.output / 'inference.log')
             trained = client.ready['metadata']
@@ -165,16 +174,19 @@ def main():
                              for key, values in dataset.data.items()}
                 provider = ConvertedReplay(converted, env.executor.position)
             else:
+                if options.seed_mode == 'episode':
+                    client.reset_episode(int(index))
                 provider = LivePolicy(client, env, dataset.manifest['dt'], _base_inverse(config))
-                if options.mode == 'hybrid':
-                    provider = HybridPolicy(provider, env)
+                if options.mode in ('hybrid', 'hybrid-corridor'):
+                    provider = hybrid_class(provider, env)
             extra = {'mode': options.mode, 'dataset_sha256': dataset_hash,
                      'checkpoint_sha256': summary['checkpoint_sha256'], 'rollout_seed': options.seed,
+                     'seed_mode': options.seed_mode,
                      'source_episode_index': index, 'source_split': source['split'],
                      'evaluation_scope': summary['scope'], 'policy_dt': dataset.manifest['dt'],
                      'observation_semantics': dataset.manifest['observation_semantics']}
-            if options.mode == 'hybrid':
-                extra['hybrid_configuration'] = dict(HYBRID_CONFIG)
+            if options.mode in ('hybrid', 'hybrid-corridor'):
+                extra['hybrid_configuration'] = dict(hybrid_config)
             if recovery.get('kind') == 'policy_state_reset':
                 extra['dynamic_initial_state'] = state
             summary['attempted'] += 1

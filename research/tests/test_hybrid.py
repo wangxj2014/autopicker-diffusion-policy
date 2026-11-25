@@ -28,6 +28,50 @@ def fixture():
     return env, pose, solved, policy, calls
 
 
+class CorridorTests(unittest.TestCase):
+    def provider(self):
+        from autopicker_dp import hybrid
+        self.assertTrue(hasattr(hybrid, 'CorridorHybridPolicy'), 'Corridor handoff is missing')
+        env, pose, solved, policy, calls = fixture()
+        pose[:3, 3] = [0., .1, 0.]
+        return hybrid.CorridorHybridPolicy(policy, env), env, pose, calls
+
+    def test_aligned_entry_latches_and_keeps_real_capture_gate(self):
+        provider, env, pose, calls = self.provider()
+        np.testing.assert_array_equal(provider.command(env), env.executor.position)
+        self.assertEqual(provider.phase, 'precision')
+        self.assertEqual(env.episode.events[0]['reason'], 'tip_entered_approach_corridor')
+        self.assertAlmostEqual(env.episode.events[0]['entry_axial_m'], .1)
+        env.time = 10.
+        pose[:3, 3] = [.08, .1, 0.]
+        provider.command(env)
+        self.assertEqual(provider.phase, 'precision')
+        self.assertEqual(calls, [])
+        env.arm['attached'], env.phase = True, 'return'
+        env.episode.event('capture', env.time, error_m=.002, angle_error_degrees=.5)
+        provider.command(env)
+        self.assertEqual(provider.phase, 'return')
+
+    def test_off_axis_wrong_angle_behind_and_far_remain_learned(self):
+        for position, angle in (([.021, .1, 0], 0), ([0, .1, 0], 5.1),
+                                ([0, -.1, 0], 0), ([0, .121, 0], 0)):
+            provider, env, pose, calls = self.provider()
+            pose[:3, 3] = position
+            radians = np.deg2rad(angle)
+            pose[:3, 1] = [-np.sin(radians), np.cos(radians), 0.]
+            np.testing.assert_array_equal(provider.command(env), np.full(4, .8))
+            self.assertEqual(provider.phase, 'policy')
+            self.assertEqual(len(calls), 1)
+
+    def test_original_near_sphere_remains_a_fallback(self):
+        provider, env, pose, calls = self.provider()
+        pose[:3, 3] = [.03, 0., 0.]
+        provider.command(env)
+        self.assertEqual(provider.phase, 'precision')
+        self.assertEqual(env.episode.events[0]['reason'], 'tip_entered_precision_region')
+        self.assertEqual(calls, [])
+
+
 class HybridTests(unittest.TestCase):
     def provider(self):
         from autopicker_dp.hybrid import HybridPolicy

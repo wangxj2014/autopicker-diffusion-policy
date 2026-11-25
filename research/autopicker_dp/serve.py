@@ -11,6 +11,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from autopicker_dp.dataset import Normalizer
 from autopicker_dp.train import load_policy
+from autopicker_dp.inference import SEED_FIELDS, episode_noise_seed
 
 
 def main():
@@ -33,9 +34,16 @@ def main():
             raise ValueError('Invalid observation message')
         normalized = normalizer.normalize(observation, key='obs')
         tensor = torch.as_tensor(normalized[None], device=options.device, dtype=torch.float32)
-        prediction = policy.predict(tensor, seed=options.seed + int(request['request_id']))
+        noise_seed = options.seed + int(request['request_id'])
+        if any(key in request for key in SEED_FIELDS):
+            noise_seed = episode_noise_seed(options.seed, request['source_episode_index'],
+                                           request['episode_request_index'])
+            if request['noise_seed'] != noise_seed:
+                raise ValueError('Episode inference seed mismatch')
+        prediction = policy.predict(tensor, seed=noise_seed)
         action = normalizer.denormalize(policy.action_chunk(prediction)[0].cpu().numpy(), key='action')
         response = {key: request[key] for key in ('request_id', 'generation', 'time_s')}
+        response.update({key: request[key] for key in SEED_FIELDS if key in request})
         response['action'] = action.tolist()
         print(json.dumps(response, allow_nan=False), flush=True)
 

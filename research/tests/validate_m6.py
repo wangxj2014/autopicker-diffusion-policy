@@ -54,9 +54,9 @@ def kinematics_audit(episode, chain, direction):
     return result
 
 
-def stage_audit(episode):
+def stage_audit(episode, *, configuration=HYBRID_CONFIG, entry_mask=None, entry_reasons=None):
     meta, events, a = episode.metadata, episode.events, episode.arrays()
-    if meta.get('hybrid_configuration') != HYBRID_CONFIG:
+    if meta.get('hybrid_configuration') != configuration:
         raise ValueError('Hybrid configuration changed')
     times = a['time_s']
     stages = [e for e in events if e['kind'] == 'controller_stage']
@@ -106,13 +106,14 @@ def stage_audit(episode):
         raise ValueError('Measured attachment disagrees with task events')
     precision = next((e for e in stages if e['stage'] == 'precision'), None)
     cutoff = captures[0]['time_s'] if captures else np.inf
-    near = np.flatnonzero((distance <= HYBRID_CONFIG['precision_entry_distance_m']) & (times < cutoff - 1e-9))
+    eligible = (distance <= HYBRID_CONFIG['precision_entry_distance_m']) if entry_mask is None else entry_mask
+    near = np.flatnonzero(eligible & (times < cutoff - 1e-9))
     if precision:
         i = row(precision['time_s'])
         if (not len(near) or i != near[0]
                 or not np.isclose(precision['entry_distance_m'], distance[i], rtol=0, atol=1e-9)
                 or not np.isfinite(precision['entry_angle_degrees'])
-                or precision['reason'] != 'tip_entered_precision_region'):
+                or precision['reason'] != ('tip_entered_precision_region' if entry_reasons is None else entry_reasons[i])):
             raise ValueError('Precision entry differs from first measured entry')
     elif len(near):
         raise ValueError('Precision entry was skipped')

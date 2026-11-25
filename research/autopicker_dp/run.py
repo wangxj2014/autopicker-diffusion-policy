@@ -118,13 +118,15 @@ def run_episode(environment, directory, camera, sample_dt, timeout_s, source=Non
         failure = str(error)
         print('EPISODE_FAILURE ' + failure, flush=True)
         episode.event('failure', env.time, reason=failure)
+    return finish_episode(env, directory, failure, started, action_provider)
+
+
+def finish_episode(env, directory, failure, started, action_provider=None):
+    episode = env.episode
     if action_provider is not None:
         episode.metadata['inference_requests'] = action_provider.requests
-    return finish_episode(env, directory, failure, started)
-
-
-def finish_episode(env, directory, failure, started):
-    episode = env.episode
+        if hasattr(action_provider, 'inference_audit'):
+            episode.metadata.update(action_provider.inference_audit())
     try:
         if not episode.states or env.time > episode.states[-1][0]:
             env.record_state(env.executor.position, env.executor.velocity)

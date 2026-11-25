@@ -58,6 +58,7 @@ class InferenceProtocolTests(unittest.TestCase):
         from autopicker_dp.inference import PolicyClient
         client = PolicyClient.__new__(PolicyClient)
         client.responses, client.timeout, client.sequence = Queue(), .005, 0
+        client.attempts = []
         client.process = SimpleNamespace(stdin=StringIO())
         return client
 

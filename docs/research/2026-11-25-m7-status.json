@@ -1,0 +1,51 @@
+{
+  "schema": "autopicker-m7-status-v1",
+  "status": "implementation_ready_closed_loop_blocked",
+  "date": "2026-11-25",
+  "planned_closed_loop_trials": 20,
+  "attempted_closed_loop_trials": 0,
+  "completed_closed_loop_trials": 0,
+  "startup_failures": 1,
+  "startup_failure_path": "runs/autopicker/m7_hybrid_train_s0_startup_failure_20261125",
+  "startup_failure_summary": {
+    "mode": "hybrid",
+    "split": "train",
+    "seed": 0,
+    "seed_mode": "episode",
+    "requested": 3,
+    "attempted": 0,
+    "successes": 0,
+    "results": [],
+    "dataset_sha256": "f7d96a5015010969051af29532cbc0d2203b0cc852703fb0b5dec0a43c704fd5",
+    "checkpoint_sha256": null,
+    "scope": "hybrid: diffusion coarse approach + oracle IK precision + event-gated classical return; fixed scene",
+    "completed": false,
+    "hybrid_configuration": {
+      "kind": "event_gated_hybrid_v1",
+      "precision_entry_distance_m": 0.03,
+      "approach_angle_degrees": 30.0,
+      "minimum_motion_duration_s": 0.8,
+      "precision_controller": "latched_oracle_ik_quintic",
+      "return_controller": "capture_event_release_goal_preserve_hor",
+      "learned_control": "coarse_approach_only"
+    },
+    "fatal_error": "Policy process exited; inspect inference log"
+  },
+  "blocker": {
+    "cuda_cuInit_code": 999,
+    "cuda_error": "unknown error",
+    "kernel_event_time_local": "2026-11-25 09:00:53 Asia/Shanghai",
+    "nvidia_xid": 154,
+    "recovery_action": "Node Reboot Required",
+    "event_preceded_experiment": true
+  },
+  "new_success_rate": null,
+  "effectiveness_validated": false,
+  "cpu_readiness_report": "2026-11-25-m7-readiness.json",
+  "resume_command": "work/autopicker_train_env/bin/python research/run_m7.py --execute",
+  "cpu_test_count": 98,
+  "cpu_tests_passed": true,
+  "completion_receipt_required": true,
+  "failed_inference_attempts_persisted": true,
+  "independent_code_review_passed": true
+}

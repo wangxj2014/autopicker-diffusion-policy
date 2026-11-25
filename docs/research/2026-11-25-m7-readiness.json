@@ -1,0 +1,259 @@
+{
+  "schema": "autopicker-m7-readiness-v1",
+  "new_closed_loop_trials": 0,
+  "scope": "CPU protocol and hypothetical gates on archived M6 states; not new rollout success evidence",
+  "checkpoint_sha256": "d0d90421470e49ac5c3828e5486ade87da326907a33f994d725b5fc18d47f85a",
+  "kinematics_sha256": "c378b0a2bad2a119d36b421b8f1c3c845307fa5c4a37dd8a49be89bd3245ac17",
+  "corridor_configuration": {
+    "kind": "event_gated_hybrid_corridor_v1",
+    "precision_entry_distance_m": 0.03,
+    "approach_angle_degrees": 30.0,
+    "minimum_motion_duration_s": 0.8,
+    "precision_controller": "latched_oracle_ik_quintic",
+    "return_controller": "capture_event_release_goal_preserve_hor",
+    "learned_control": "coarse_approach_only",
+    "corridor_entry_distance_m": 0.12,
+    "corridor_lateral_error_m": 0.02,
+    "corridor_angle_error_degrees": 5.0,
+    "corridor_minimum_axial_m": 0.0
+  },
+  "archived_episodes": [
+    {
+      "source_split": "train",
+      "source_episode_index": 1,
+      "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_035",
+      "m6_precision_entry_s": 18.304166666666667,
+      "hypothetical_corridor_entry": {
+        "time_s": 3.122916666666667,
+        "distance_m": 0.08798583053217696,
+        "axial_m": 0.08706553644502417,
+        "lateral_m": 0.01269246776545568,
+        "angle_degrees": 4.9683168672989755,
+        "ik_goal": [
+          -0.5921486173900609,
+          0.23839303355564562,
+          -0.36318246166089074,
+          1.1157473426599593
+        ],
+        "ik_residual_m": 9.433917399789028e-12,
+        "ik_angle_degrees": 0.0001717889323231918
+      },
+      "closest_pre_handoff": {
+        "time_s": 18.302083333333332,
+        "distance_m": 0.03022109624236498,
+        "axial_m": 0.029388983921776947,
+        "lateral_m": 0.007042888763555965,
+        "angle_degrees": 2.585386812294237
+      },
+      "max_fk_measured_tip_error_m": 1.830927911632911e-06,
+      "m6_command_reconstruction_error": 0.0,
+      "episode_json_sha256": "c117a754a8651f4c3c5d991e10cc7a2ee3eccfb8f47d61d58eeb25794543d3c4",
+      "states_sha256": "169a3d5e35d36bb4f9abc62552544c2d2d4c218df43cfd54f6f372f9ec1985ee"
+    },
+    {
+      "source_split": "train",
+      "source_episode_index": 2,
+      "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_026",
+      "m6_precision_entry_s": 7.304166666666666,
+      "hypothetical_corridor_entry": {
+        "time_s": 3.03125,
+        "distance_m": 0.033183157015174776,
+        "axial_m": 0.02652550523131508,
+        "lateral_m": 0.019937890603502144,
+        "angle_degrees": 3.8873096572843773,
+        "ik_goal": [
+          -0.8751900973372856,
+          0.12278374407382135,
+          -0.46619031498950214,
+          1.3987888226060108
+        ],
+        "ik_residual_m": 1.1354048560656536e-11,
+        "ik_angle_degrees": 0.00013577417100896607
+      },
+      "closest_pre_handoff": {
+        "time_s": 7.302083333333333,
+        "distance_m": 0.030014106377033778,
+        "axial_m": 0.02351374358251731,
+        "lateral_m": 0.01865342982798407,
+        "angle_degrees": 0.23549782468667124
+      },
+      "max_fk_measured_tip_error_m": 1.6367483419982758e-06,
+      "m6_command_reconstruction_error": 0.0,
+      "episode_json_sha256": "128920a3b91d1fac46901ef7ed410a76e192db5496815dc8aa9d5f9dc4d65048",
+      "states_sha256": "83bb355f788d4b7ad58a951342e4196ae13a11f012a85da8e987831e6acebf1a"
+    },
+    {
+      "source_split": "train",
+      "source_episode_index": 4,
+      "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_034",
+      "m6_precision_entry_s": 32.38333333333333,
+      "hypothetical_corridor_entry": {
+        "time_s": 3.1291666666666664,
+        "distance_m": 0.10746836288455976,
+        "axial_m": 0.10559634575911436,
+        "lateral_m": 0.019971499277945837,
+        "angle_degrees": 2.371072550815761,
+        "ik_goal": [
+          -0.5977297316127211,
+          0.4115038668409279,
+          -0.39348640905147725,
+          1.1213284568824848
+        ],
+        "ik_residual_m": 9.100393114114627e-12,
+        "ik_angle_degrees": 0.00017128963439323755
+      },
+      "closest_pre_handoff": {
+        "time_s": 32.38125,
+        "distance_m": 0.030199353444828776,
+        "axial_m": 0.025192738527961417,
+        "lateral_m": 0.016653134057812068,
+        "angle_degrees": 2.936315101040537
+      },
+      "max_fk_measured_tip_error_m": 1.6919827742434896e-06,
+      "m6_command_reconstruction_error": 0.0,
+      "episode_json_sha256": "a319d951932491ee62472c885f99e45bfa70b35cc352d7302419172474627dc2",
+      "states_sha256": "6c92e6ede290a2161ef577629f96a480cdd7c8f0918de96832307fb4bd941a3b"
+    },
+    {
+      "source_split": "val",
+      "source_episode_index": 0,
+      "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036",
+      "m6_precision_entry_s": null,
+      "hypothetical_corridor_entry": null,
+      "closest_pre_handoff": {
+        "time_s": 1.99375,
+        "distance_m": 0.08580367957975844,
+        "axial_m": 0.0396946927894953,
+        "lateral_m": 0.07606972323975844,
+        "angle_degrees": 14.74624492703246
+      },
+      "max_fk_measured_tip_error_m": 1.7240195877683033e-06,
+      "m6_command_reconstruction_error": 0.0,
+      "episode_json_sha256": "50c87d07cbf0f824e35805ab93f15170d8e9eabce87368e63b2fad97dbdeddc4",
+      "states_sha256": "1e44c1652208a37e0b041006cdb3c3d5a39e1ceb84b7429dbd4862b1d38f35fe"
+    },
+    {
+      "source_split": "val",
+      "source_episode_index": 5,
+      "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036",
+      "m6_precision_entry_s": null,
+      "hypothetical_corridor_entry": null,
+      "closest_pre_handoff": {
+        "time_s": 1.98125,
+        "distance_m": 0.08510228870587931,
+        "axial_m": 0.04313558818784792,
+        "lateral_m": 0.07336021111384038,
+        "angle_degrees": 16.504644685334945
+      },
+      "max_fk_measured_tip_error_m": 1.7597292879093048e-06,
+      "m6_command_reconstruction_error": 0.0,
+      "episode_json_sha256": "ba14b940f5e798b486fb45836da91beadeb9560da4d5a4d8db504c163f52fc76",
+      "states_sha256": "8b8432748dab11c49e0fd93d83a718397c9ec641059577bebdb60ab09704d9ee"
+    }
+  ],
+  "real_serve_cpu_smoke": {
+    "device": "cpu",
+    "requests": 4,
+    "seed": 0,
+    "requests_and_responses": [
+      {
+        "request_identity": {
+          "request_id": 1,
+          "generation": 7,
+          "time_s": 0.0,
+          "source_episode_index": 4,
+          "episode_request_index": 0,
+          "noise_seed": 3369160009
+        },
+        "action": [
+          [
+            -0.12087564915418625,
+            0.1200355812907219,
+            -0.12046760320663452,
+            -2.5864641429507174e-05
+          ],
+          [
+            -0.12245871871709824,
+            0.12053751200437546,
+            -0.12064647674560547,
+            0.004533396102488041
+          ]
+        ]
+      },
+      {
+        "request_identity": {
+          "request_id": 2,
+          "generation": 7,
+          "time_s": 0.2,
+          "source_episode_index": 4,
+          "episode_request_index": 1,
+          "noise_seed": 4036190934
+        },
+        "action": [
+          [
+            -0.12088015675544739,
+            0.12003983557224274,
+            -0.12046860158443451,
+            -2.620170562295243e-05
+          ],
+          [
+            -0.12245986610651016,
+            0.12054065614938736,
+            -0.12065048515796661,
+            0.004522869363427162
+          ]
+        ]
+      },
+      {
+        "request_identity": {
+          "request_id": 3,
+          "generation": 7,
+          "time_s": 0.0,
+          "source_episode_index": 5,
+          "episode_request_index": 0,
+          "noise_seed": 4062107196
+        },
+        "action": [
+          [
+            -0.12088201940059662,
+            0.12003979831933975,
+            -0.12047112733125687,
+            -3.792117058765143e-05
+          ],
+          [
+            -0.12246937304735184,
+            0.12054023146629333,
+            -0.12065019458532333,
+            0.004538089036941528
+          ]
+        ]
+      },
+      {
+        "request_identity": {
+          "request_id": 37,
+          "generation": 7,
+          "time_s": 0.0,
+          "source_episode_index": 4,
+          "episode_request_index": 0,
+          "noise_seed": 3369160009
+        },
+        "action": [
+          [
+            -0.12087564915418625,
+            0.1200355812907219,
+            -0.12046760320663452,
+            -2.5864641429507174e-05
+          ],
+          [
+            -0.12245871871709824,
+            0.12053751200437546,
+            -0.12064647674560547,
+            0.004533396102488041
+          ]
+        ]
+      }
+    ],
+    "same_episode_different_global_id_max_action_error": 0.0,
+    "scope": "CPU generator only; does not establish CUDA numerical equivalence"
+  }
+}
