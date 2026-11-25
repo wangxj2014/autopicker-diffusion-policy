@@ -54,6 +54,17 @@ class OnlineActionTests(unittest.TestCase):
 
 
 class InferenceProtocolTests(unittest.TestCase):
+    def test_inference_server_command_carries_step_override(self):
+        from autopicker_dp.inference import inference_process_command
+        command = inference_process_command('/venv/python', '/model.pt', '/upstream', 7, 5)
+        self.assertEqual(command[-2:], ['--inference-steps', '5'])
+        self.assertIn('/model.pt', command)
+        self.assertIn('/upstream', command)
+        with self.assertRaises(ValueError):
+            inference_process_command('/venv/python', '/model.pt', '/upstream', 7, 0)
+        with self.assertRaises(ValueError):
+            inference_process_command('/venv/python', '/model.pt', '/upstream', 7, 101)
+
     def client(self):
         from autopicker_dp.inference import PolicyClient
         client = PolicyClient.__new__(PolicyClient)
