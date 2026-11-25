@@ -1,0 +1,79 @@
+{
+  "schema": "autopicker-run-manifest-v1",
+  "created_at_utc": "2026-11-25T07:06:36.523912+00:00",
+  "run_type": "diffusion_training",
+  "host": {
+    "hostname": "oem-Legion-R9000P-ARX8",
+    "platform": "Linux-6.8.0-149-generic-x86_64-with-glibc2.35",
+    "os_release": {
+      "PRETTY_NAME": "Ubuntu 22.04.5 LTS",
+      "NAME": "Ubuntu",
+      "VERSION_ID": "22.04",
+      "VERSION": "22.04.5 LTS (Jammy Jellyfish)",
+      "VERSION_CODENAME": "jammy",
+      "ID": "ubuntu",
+      "ID_LIKE": "debian",
+      "HOME_URL": "https://www.ubuntu.com/",
+      "SUPPORT_URL": "https://help.ubuntu.com/",
+      "BUG_REPORT_URL": "https://bugs.launchpad.net/ubuntu/",
+      "PRIVACY_POLICY_URL": "https://www.ubuntu.com/legal/terms-and-policies/privacy-policy",
+      "UBUNTU_CODENAME": "jammy"
+    },
+    "architecture": "x86_64",
+    "cpu_count_logical": 32,
+    "ram_total_mb": 31767.55,
+    "ram_available_mb": 18648.03,
+    "ram_used_mb": 13119.52
+  },
+  "python": {
+    "executable": "/home/oem/Documents/Codex/2026-11-19/new-chat/work/autopicker_train_env/bin/python",
+    "version": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+    "implementation": "CPython"
+  },
+  "gpu": {
+    "available": true,
+    "devices": [
+      {
+        "index": "0",
+        "name": "NVIDIA GeForce RTX 4060 Laptop GPU",
+        "uuid": "GPU-ed41b356-9998-75cb-1cbe-40198165e717",
+        "driver_version": "580.178.04",
+        "memory_total_mb": "8188",
+        "pci_bus_id": "00000000:01:00.0"
+      }
+    ]
+  },
+  "git": {
+    "revision": "79dd86d5d9526301ca711b64f2dc39d3851e498e",
+    "branch": "research/dp-single-gpu-telemetry-v1",
+    "dirty": true,
+    "git_errors": []
+  },
+  "configuration": {
+    "dataset": "datasets/autopicker/lowdim_v2",
+    "recovery_dataset": null,
+    "upstream": "work/diffusion_policy_upstream",
+    "output": "runs/autopicker/dp_v2_smoke_4060",
+    "split": "train",
+    "action_normalization": "physical",
+    "prediction_type": "epsilon",
+    "steps": 10,
+    "batch_size": 4,
+    "seed": 0,
+    "device": "cuda",
+    "learning_rate": 0.0001,
+    "qdot_noise_std_rad_s": 0.0
+  },
+  "inputs": {
+    "dataset_manifest": {
+      "path": "datasets/autopicker/lowdim_v2/manifest.json",
+      "exists": true,
+      "size_bytes": 83439,
+      "sha256": "f7d96a5015010969051af29532cbc0d2203b0cc852703fb0b5dec0a43c704fd5"
+    }
+  },
+  "extra": {
+    "dataset_sha256": "f7d96a5015010969051af29532cbc0d2203b0cc852703fb0b5dec0a43c704fd5",
+    "upstream_revision": "5ba07ac6661db573af695b419a7947ecb704690f"
+  }
+}

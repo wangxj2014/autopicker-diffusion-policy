@@ -16,6 +16,7 @@ import torch
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'research'))
 from autopicker_dp.policy import DiffusionPolicy, UPSTREAM_REVISION
+from autopicker_dp.telemetry import ResourceMonitor, write_run_manifest
 
 
 def add_velocity_observation_noise(observation, normalized_std):
@@ -129,6 +130,15 @@ def main():
     ema = deepcopy(policy).eval()
     optimizer = torch.optim.AdamW(policy.parameters(), lr=options.learning_rate, weight_decay=1e-6)
     options.output.mkdir(parents=True, exist_ok=False)
+    manifest_inputs = {'dataset_manifest': options.dataset / 'manifest.json'}
+    if options.recovery_dataset is not None:
+        manifest_inputs['recovery_manifest'] = options.recovery_dataset / 'manifest.json'
+    run_manifest = write_run_manifest(
+        options.output, ROOT, 'diffusion_training', configuration=vars(options),
+        input_paths=manifest_inputs,
+        extra={'dataset_sha256': dataset_hash, 'upstream_revision': UPSTREAM_REVISION})
+    run_manifest_sha256 = hashlib.sha256(
+        (options.output / 'run_manifest.json').read_bytes()).hexdigest()
     if options.device.startswith('cuda'):
         torch.cuda.reset_peak_memory_stats()
     qdot_noise_normalized_std = (options.qdot_noise_std_rad_s
@@ -159,37 +169,56 @@ def main():
                 'optimizer': 'AdamW', 'training_windows': len(sequences)}
     if augmentation is not None:
         metadata['recovery_augmentation'] = augmentation
+    monitor = ResourceMonitor(options.output, interval_s=1.0).start()
     started = time.monotonic()
     losses = []
-    with (options.output / 'metrics.jsonl').open('w', encoding='utf-8') as stream:
-        for step in range(1, options.steps + 1):
-            selected = torch.randint(0, len(sequences), (options.batch_size,), device=options.device)
-            batch_observation = tensors['obs'][selected].float()
-            if options.qdot_noise_std_rad_s > 0:
-                batch_observation = add_velocity_observation_noise(
-                    batch_observation, qdot_noise_normalized_std)
-            loss = policy.loss(batch_observation, tensors['action'][selected].float(),
-                               tensors['valid_mask'][selected].bool())
-            if not torch.isfinite(loss):
-                raise RuntimeError('Nonfinite training loss')
-            optimizer.zero_grad(set_to_none=True)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(policy.parameters(), 1.)
-            optimizer.step()
-            with torch.no_grad():
-                decay = min(.995, (1. + step) / (10. + step))
-                for averaged, current in zip(ema.parameters(), policy.parameters()):
-                    averaged.lerp_(current, 1. - decay)
-            losses.append(float(loss.detach()))
-            if step % 100 == 0 or step == options.steps:
-                metrics = {'step': step, 'loss_mean_last100': float(np.mean(losses[-100:])),
-                           'wall_time_s': time.monotonic() - started}
-                stream.write(json.dumps(metrics) + '\n')
-                stream.flush()
-                print('TRAIN_PROGRESS ' + json.dumps(metrics), flush=True)
+    gradient_norms = []
+    try:
+        with (options.output / 'metrics.jsonl').open('w', encoding='utf-8') as stream:
+            for step in range(1, options.steps + 1):
+                selected = torch.randint(0, len(sequences), (options.batch_size,), device=options.device)
+                batch_observation = tensors['obs'][selected].float()
+                if options.qdot_noise_std_rad_s > 0:
+                    batch_observation = add_velocity_observation_noise(
+                        batch_observation, qdot_noise_normalized_std)
+                loss = policy.loss(batch_observation, tensors['action'][selected].float(),
+                                   tensors['valid_mask'][selected].bool())
+                if not torch.isfinite(loss):
+                    raise RuntimeError('Nonfinite training loss')
+                optimizer.zero_grad(set_to_none=True)
+                loss.backward()
+                gradient_norm = torch.nn.utils.clip_grad_norm_(policy.parameters(), 1.)
+                if not torch.isfinite(gradient_norm):
+                    raise RuntimeError('Nonfinite gradient norm')
+                gradient_norms.append(float(gradient_norm.detach()))
+                optimizer.step()
+                with torch.no_grad():
+                    decay = min(.995, (1. + step) / (10. + step))
+                    for averaged, current in zip(ema.parameters(), policy.parameters()):
+                        averaged.lerp_(current, 1. - decay)
+                losses.append(float(loss.detach()))
+                if step % 100 == 0 or step == options.steps:
+                    metrics = {'step': step, 'loss_mean_last100': float(np.mean(losses[-100:])),
+                               'gradient_norm_mean_last100': float(np.mean(gradient_norms[-100:])),
+                               'gradient_norm_max_last100': float(np.max(gradient_norms[-100:])),
+                               'learning_rate': float(optimizer.param_groups[0]['lr']),
+                               'cuda_memory_allocated_mb': (torch.cuda.memory_allocated() / 1048576
+                                                             if options.device.startswith('cuda') else 0.),
+                               'cuda_memory_reserved_mb': (torch.cuda.memory_reserved() / 1048576
+                                                            if options.device.startswith('cuda') else 0.),
+                               'wall_time_s': time.monotonic() - started}
+                    stream.write(json.dumps(metrics) + '\n')
+                    stream.flush()
+                    print('TRAIN_PROGRESS ' + json.dumps(metrics), flush=True)
+
+    finally:
+        resource_summary = monitor.stop()
     metadata.update(wall_time_s=time.monotonic() - started, initial_loss_mean=float(np.mean(losses[:100])),
                     final_loss_mean=float(np.mean(losses[-100:])),
-                    peak_cuda_memory_bytes=torch.cuda.max_memory_allocated() if options.device.startswith('cuda') else 0)
+                    peak_cuda_memory_bytes=torch.cuda.max_memory_allocated() if options.device.startswith('cuda') else 0,
+                    peak_cuda_memory_reserved_bytes=torch.cuda.max_memory_reserved() if options.device.startswith('cuda') else 0,
+                    resource_monitor=resource_summary, run_manifest='run_manifest.json',
+                    run_manifest_sha256=run_manifest_sha256)
     checkpoint = options.output / 'checkpoint.pt'
     save_checkpoint(checkpoint, policy, ema, optimizer, metadata)
     reloaded, _ = load_policy(checkpoint, options.upstream, options.device)

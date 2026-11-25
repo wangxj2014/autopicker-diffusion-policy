@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / 'research'))
 from autopicker_dp.control import CommandTrajectory
 from autopicker_dp.dataset import prepare_dataset, _base_inverse, _observation, _sha256
 from autopicker_dp.inference import ActionLoop, PolicyClient
+from autopicker_dp.telemetry import ResourceMonitor, write_run_manifest
 
 
 def verified_sources(path):
@@ -118,9 +119,22 @@ def main():
     if not indices:
         raise ValueError('No episodes selected')
     options.output.mkdir(parents=True, exist_ok=False)
+    checkpoint_sha256 = hashlib.sha256(options.checkpoint.read_bytes()).hexdigest() if options.checkpoint else None
+    input_paths = {'dataset_manifest': options.dataset / 'manifest.json', 'scene': options.scene}
+    if options.checkpoint is not None:
+        input_paths['checkpoint'] = options.checkpoint
+    run_manifest = write_run_manifest(
+        options.output, ROOT, 'isaac_rollout', configuration=vars(options), input_paths=input_paths,
+        extra={'dataset_sha256': dataset_hash, 'checkpoint_sha256': checkpoint_sha256,
+               'selected_episode_indices': indices,
+               'inference_python': str(options.inference_python) if options.inference_python else None})
+    run_manifest_sha256 = hashlib.sha256(
+        (options.output / 'run_manifest.json').read_bytes()).hexdigest()
     summary = {'mode': options.mode, 'split': options.split, 'seed': options.seed, 'seed_mode': options.seed_mode,
                'requested': len(indices), 'attempted': 0, 'successes': 0, 'results': [],
-               'dataset_sha256': dataset_hash, 'checkpoint_sha256': None,
+               'dataset_sha256': dataset_hash, 'checkpoint_sha256': checkpoint_sha256,
+               'run_manifest': 'run_manifest.json', 'run_manifest_sha256': run_manifest_sha256,
+               'resource_metrics': 'system_metrics.csv',
                'scope': 'oracle lowdim, fixed scene/reset, pilot only', 'completed': False}
     if options.mode in ('hybrid', 'hybrid-corridor'):
         from autopicker_dp.hybrid import HYBRID_CONFIG, CORRIDOR_CONFIG, HybridPolicy, CorridorHybridPolicy
@@ -129,6 +143,7 @@ def main():
         summary.update(hybrid_configuration=dict(hybrid_config),
                        scope='hybrid: diffusion coarse approach + oracle IK precision + event-gated classical return; fixed scene')
     client = app = env = None
+    monitor = ResourceMonitor(options.output, interval_s=1.0).start()
     try:
         if options.mode != 'converted-replay':
             client = PolicyClient(options.inference_python, options.checkpoint, options.upstream,
@@ -138,7 +153,9 @@ def main():
                 raise ValueError('Checkpoint data identity or action rate differs from rollout')
             summary.update(checkpoint_sha256=client.ready['checkpoint_sha256'],
                            training_split=trained['split'], training_seed=trained['seed'],
-                           training_scope=trained['scope'])
+                           training_scope=trained['scope'],
+                           inference_runtime=trained.get('versions'),
+                           observation_augmentation=trained.get('observation_augmentation'))
             if trained['split'] == 'all-pilot':
                 summary['scope'] += '; all-pilot overfit diagnostic; no held-out evaluation'
         sys.argv = sys.argv[:1]
@@ -146,7 +163,9 @@ def main():
         app = SimulationApp({'headless': options.headless, 'width': 640, 'height': 480})
         from autopicker_dp.environment import PickingEnvironment
         from autopicker_dp.run import run_episode
+        from isaacsim.core.version import get_version
         from pxr import UsdGeom
+        summary['isaac_version'] = list(get_version())
         env = PickingEnvironment(options.scene, config['arm'], config['speed_scale'])
         starts = np.r_[0, dataset.episode_ends[:-1]]
         for ordinal, index in enumerate(indices):
@@ -216,13 +235,16 @@ def main():
         print('AUTOPICKER_ROLLOUT_FAILED', flush=True)
         raise
     finally:
-        (options.output / 'summary.json').write_text(json.dumps(summary, indent=2))
-        if client is not None:
-            client.close()
-        if env is not None:
-            env.close()
-        if app is not None:
-            app.close()
+        try:
+            if client is not None:
+                client.close()
+            if env is not None:
+                env.close()
+            if app is not None:
+                app.close()
+        finally:
+            summary['resource_monitor'] = monitor.stop()
+            (options.output / 'summary.json').write_text(json.dumps(summary, indent=2))
 
 
 if __name__ == '__main__':
