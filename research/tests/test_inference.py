@@ -12,25 +12,34 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 class OnlineActionTests(unittest.TestCase):
-    def test_two_observations_are_one_sample_apart_and_nodes_are_endpoints(self):
+    def test_replanning_anchors_to_current_executor_position(self):
         from autopicker_dp.inference import ActionLoop
         calls = []
         def predict(observations, generation, timestamp):
             calls.append((observations.copy(), generation, timestamp))
-            return np.array([[.1, .2, .3, .4], [.2, .4, .6, .8]])
+            offset = .1 * len(calls)
+            return np.array([[offset] * 4, [offset + .1] * 4])
         loop = ActionLoop(predict, .1, np.full(4, -2.), np.full(4, 2.))
         loop.reset(7, np.zeros(4))
-        first = loop.command(0, np.zeros(15), np.zeros(4), 1/480)
+        first = loop.command(0, np.zeros(15), np.zeros(4), .1)
         np.testing.assert_array_equal(first, np.zeros(4))
-        halfway = loop.command(24, np.zeros(15), np.zeros(4), 1/480)
-        np.testing.assert_allclose(halfway, [.05, .1, .15, .2])
-        loop.command(48, np.ones(15), np.zeros(4), 1/480)
-        # The old chunk endpoint remains the desired node even if the bounded
-        # executor has not reached it yet; replanning must not drop this node.
-        np.testing.assert_allclose(loop.command(96, np.full(15, 2.), [.19, .39, .59, .79], 1/480), [.2, .4, .6, .8])
+        # At the next replan, the executor is still short of the previous
+        # predicted endpoint. The new chunk must begin at the measured executor
+        # position, not at the stale predicted endpoint.
+        replanned = loop.command(2, np.ones(15), np.full(4, .15), .1)
+        np.testing.assert_allclose(replanned, np.full(4, .15))
         np.testing.assert_array_equal(calls[0][0], np.zeros((2, 15)))
-        np.testing.assert_array_equal(calls[1][0], np.stack([np.ones(15), np.full(15, 2.)]))
+        np.testing.assert_array_equal(calls[1][0], np.stack([np.ones(15), np.ones(15)]))
         self.assertEqual(calls[1][1:], (7, .2))
+
+    def test_action_loop_reports_latest_prediction_nodes(self):
+        from autopicker_dp.inference import ActionLoop
+        loop = ActionLoop(lambda *args: np.array([[.1] * 4, [.2] * 4]),
+                          .1, np.full(4, -1.), np.ones(4))
+        loop.reset(1, np.zeros(4))
+        loop.command(0, np.zeros(15), np.zeros(4), .1)
+        np.testing.assert_allclose(loop.actions, [[.1] * 4, [.2] * 4])
+        np.testing.assert_allclose(loop.anchor, np.zeros(4))
 
     def test_invalid_predictions_fail_and_reset_clears_history(self):
         from autopicker_dp.inference import ActionLoop

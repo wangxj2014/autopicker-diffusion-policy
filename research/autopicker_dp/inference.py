@@ -66,8 +66,10 @@ class ActionLoop:
                 if (actions.shape != (2, 4) or not np.isfinite(actions).all()
                         or np.any(actions < self.lower - 1e-7) or np.any(actions > self.upper + 1e-7)):
                     raise ValueError('Policy returned invalid or out-of-limit actions')
-                self.anchor = (np.asarray(current_command).copy() if self.actions is None
-                               else self.actions[-1].copy())
+                # Replanning must start from the executor's current position.
+                # The previous predicted endpoint is only a desired waypoint and may
+                # not have been reached when velocity/acceleration limits are active.
+                self.anchor = np.asarray(current_command, dtype=float).copy()
                 self.actions = np.clip(actions, self.lower, self.upper)
                 self.chunk_start = step
                 self.requests.append({'generation': self.generation, 'time_s': step * physics_dt,

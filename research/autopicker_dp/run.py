@@ -1,5 +1,6 @@
 """Collect, replay or audit single-arm Autopicker research episodes."""
 import argparse
+import csv
 import hashlib
 import json
 from pathlib import Path
@@ -121,12 +122,42 @@ def run_episode(environment, directory, camera, sample_dt, timeout_s, source=Non
     return finish_episode(env, directory, failure, started, action_provider)
 
 
+def _policy_provider(provider):
+    """Unwrap optional hybrid controllers to find the learned policy provider."""
+    current = provider
+    for _ in range(4):
+        if current is None or hasattr(current, 'telemetry_rows'):
+            return current
+        current = getattr(current, 'policy', None)
+    return None
+
+
+def _write_trajectory_csv(directory, rows):
+    if not rows:
+        return None
+    path = Path(directory) / 'trajectory.csv'
+    fieldnames = list(rows[0])
+    with path.open('w', newline='', encoding='utf-8') as stream:
+        writer = csv.DictWriter(stream, fieldnames=fieldnames, extrasaction='raise')
+        writer.writeheader()
+        writer.writerows(rows)
+    return path
+
+
 def finish_episode(env, directory, failure, started, action_provider=None):
     episode = env.episode
+    policy_provider = _policy_provider(action_provider)
+    trajectory_rows = list(getattr(policy_provider, 'telemetry_rows', []))
     if action_provider is not None:
         episode.metadata['inference_requests'] = action_provider.requests
         if hasattr(action_provider, 'inference_audit'):
             episode.metadata.update(action_provider.inference_audit())
+    if policy_provider is not None:
+        episode.metadata['trajectory_diagnostics'] = {
+            'file': 'trajectory.csv', 'sample_period_s': 0.1,
+            'sample_count': len(trajectory_rows),
+            'columns': list(trajectory_rows[0]) if trajectory_rows else [],
+        }
     try:
         if not episode.states or env.time > episode.states[-1][0]:
             env.record_state(env.executor.position, env.executor.velocity)
@@ -145,8 +176,11 @@ def finish_episode(env, directory, failure, started, action_provider=None):
             'metadata': episode.metadata, 'events': episode.events,
             'reason': failure or str(error), 'audit_error': str(error)}, indent=2), encoding='utf-8')
         raise RuntimeError(f'Episode failed data audit: {failure or error}') from error
+    trajectory_path = _write_trajectory_csv(directory, trajectory_rows)
     result = {'path': str(directory), **episode.audit(), 'wall_time_s': time.monotonic() - started,
-              'max_inactive_joint_drift': env.max_inactive_drift}
+              'max_inactive_joint_drift': env.max_inactive_drift,
+              'trajectory_csv': str(trajectory_path) if trajectory_path else None,
+              'trajectory_samples': len(trajectory_rows)}
     print('EPISODE_RESULT ' + json.dumps(result), flush=True)
     return result
 

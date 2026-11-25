@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
 
@@ -13,6 +14,14 @@ from autopicker_dp.control import CommandTrajectory
 from autopicker_dp.dataset import prepare_dataset, _base_inverse, _observation, _sha256
 from autopicker_dp.inference import ActionLoop, PolicyClient
 from autopicker_dp.telemetry import ResourceMonitor, write_run_manifest
+
+
+def _write_summary(path, summary):
+    """Atomically persist the latest run state, including final completion."""
+    path = Path(path)
+    temporary = path.with_name(path.name + '.tmp')
+    temporary.write_text(json.dumps(summary, indent=2, allow_nan=False), encoding='utf-8')
+    temporary.replace(path)
 
 
 def verified_sources(path):
@@ -67,6 +76,9 @@ class LivePolicy:
         self.loop = ActionLoop(client.predict, dt, env.arm['chain'].lower, env.arm['chain'].upper)
         self.loop.reset(env.generation, env.executor.position)
         self.requests = self.loop.requests
+        self.telemetry_rows = []
+        self.telemetry_stride = max(1, round(0.1 / env.dt))
+        self._last_limited_steps = env.executor.limited_steps
 
     def inference_audit(self):
         return {'inference_request_start': self.request_start, 'inference_request_end': self.client.sequence,
@@ -78,6 +90,30 @@ class LivePolicy:
                                     env.executor.position, env.dt)
         if self.requests and self.requests[-1]['time_s'] == env.time:
             self.requests[-1].update(self.client.last_request_identity)
+        if steps % self.telemetry_stride == 0:
+            q = env.positions()
+            qdot = env.demo.robot.get_joint_velocities()[0, env.arm['indices']].copy()
+            tip = env.tip_pose()[:3, 3].copy()
+            target = np.asarray(env.entry['world'], dtype=float).copy()
+            predicted = self.loop.actions
+            limited_total = int(env.executor.limited_steps)
+            self.telemetry_rows.append({
+                'time_s': float(env.time),
+                **{f'q_{i}': float(value) for i, value in enumerate(q)},
+                **{f'qdot_{i}': float(value) for i, value in enumerate(qdot)},
+                **{f'predicted_action_0_{i}': float(value) for i, value in enumerate(predicted[0])},
+                **{f'predicted_action_1_{i}': float(value) for i, value in enumerate(predicted[1])},
+                **{f'requested_command_{i}': float(value) for i, value in enumerate(command)},
+                **{f'executor_position_{i}': float(value) for i, value in enumerate(env.executor.position)},
+                **{f'executor_velocity_{i}': float(value) for i, value in enumerate(env.executor.velocity)},
+                **{f'tip_world_m_{i}': float(value) for i, value in enumerate(tip)},
+                **{f'target_world_m_{i}': float(value) for i, value in enumerate(target)},
+                'target_distance_m': float(np.linalg.norm(tip - target)),
+                'limited_steps_total': limited_total,
+                'limited_steps_since_sample': limited_total - self._last_limited_steps,
+                'inference_request_count': len(self.requests),
+            })
+            self._last_limited_steps = limited_total
         if (env.generation != generation or env.steps != steps
                 or float(env.world.current_time) != world_time):
             raise RuntimeError('Simulation advanced during policy inference')
@@ -235,8 +271,9 @@ def main():
             result.update(source_episode_index=index, target_path=source['metadata']['target_path'])
             summary['results'].append(result)
             summary['successes'] += int(result['success'])
-            (options.output / 'summary.json').write_text(json.dumps(summary, indent=2))
-        summary['completed'] = True
+            _write_summary(options.output / 'summary.json', summary)
+        summary['completed'] = summary['attempted'] == summary['requested']
+        summary['run_status'] = 'completed' if summary['completed'] else 'incomplete'
         print('AUTOPICKER_ROLLOUT_COMPLETE ' + json.dumps(summary), flush=True)
     except BaseException as error:
         summary['fatal_error'] = str(error)
@@ -253,8 +290,13 @@ def main():
             if app is not None:
                 app.close()
         finally:
-            summary['resource_monitor'] = monitor.stop()
-            (options.output / 'summary.json').write_text(json.dumps(summary, indent=2))
+            try:
+                summary['resource_monitor'] = monitor.stop()
+            except Exception as monitor_error:
+                summary['resource_monitor_error'] = str(monitor_error)
+            summary['run_status'] = 'completed' if summary.get('completed') else 'failed'
+            summary['finished_at_utc'] = datetime.now(timezone.utc).isoformat()
+            _write_summary(options.output / 'summary.json', summary)
 
 
 if __name__ == '__main__':
