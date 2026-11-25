@@ -42,9 +42,9 @@ work/autopicker_train_env/bin/python research/benchmark_inference.py \
   --device cuda \
   --steps 5 10 20 \
   --reference-steps 20 \
-  --max-samples 16 \
-  --warmup 3 \
-  --repeats 2 \
+  --max-samples 32 \
+  --warmup 5 \
+  --repeats 4 \
   --seed 0
 ~~~
 
@@ -55,15 +55,17 @@ work/autopicker_train_env/bin/python research/benchmark_inference.py \
 - run_manifest.json：机器、GPU、驱动、Git、checkpoint 和 dataset 身份。
 - metrics.jsonl：每个验证观测、每个去噪步数及每次重复的推理耗时。
 - system_metrics.csv：运行期间的 GPU、VRAM、CPU、RAM、温度和功耗。
-- report.json：每种步数的 mean/std/p50/p95/p99/max 延迟、峰值显存，以及动作与 20 步参考的差异。
+- report.json：每种步数的 mean/std/p50/p95/p99/max 延迟、相对 20 步的 p50 加速比、每个关节的物理单位动作差异和峰值显存。
+- failure.json：基准运行失败时保存异常类型、错误信息和 traceback。
 
 ## 如何解读
 
 1. 先看 p50、p95、p99；不要只比较平均值。
-2. 对比 action_deviation_vs_reference。低步数与 20 步差异越大，表示数值求解结果发生变化；并不自动意味着动作质量变差或变好。
-3. 只有在 Isaac Sim rollout 中保持同一目标集、同一随机种子和同一控制条件，才可以进一步比较采摘效果。
-4. 如果 5 步显著缩短延迟且动作偏差小，可以把 5 步加入闭环对照；若偏差大，则先测试 10 步。
-5. 纯 policy、hybrid 和 converted replay 必须分开统计。
+2. 对比 action_deviation_vs_reference_physical_units，逐关节查看 rad/m 单位下的动作差异。低步数与 20 步差异越大，表示数值求解结果发生变化；并不自动意味着动作质量变差或变好。
+3. 查看 speedup_vs_reference_p50，确认延迟收益。p95/p99 基于有限样本，仅用于初步比较，不是实时最坏执行时间保证。
+4. 只有在 Isaac Sim rollout 中保持同一目标集、同一随机种子和同一控制条件，才可以进一步比较采摘效果。
+5. 如果 5 步显著缩短延迟且动作偏差小，可以把 5 步加入闭环对照；若偏差大，则先测试 10 步。
+6. 纯 policy、hybrid 和 converted replay 必须分开统计。
 
 ## 导出日志到 GitHub
 
