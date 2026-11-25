@@ -1,0 +1,47 @@
+{
+  "mode": "collect",
+  "requested": 3,
+  "attempted": 3,
+  "successes": 3,
+  "results": [
+    {
+      "path": "datasets/autopicker/ik_coverage_smoke_v1/episode_0000",
+      "success": true,
+      "reason": "collected",
+      "states": 6720,
+      "frames": 0,
+      "duration_s": 13.997916666666667,
+      "max_sync_error_s": 0.0,
+      "wall_time_s": 12.983975169001496,
+      "max_inactive_joint_drift": 4.8419315135106444e-06,
+      "trajectory_csv": null,
+      "trajectory_samples": 0
+    },
+    {
+      "path": "datasets/autopicker/ik_coverage_smoke_v1/episode_0001",
+      "success": true,
+      "reason": "collected",
+      "states": 6705,
+      "frames": 0,
+      "duration_s": 13.966666666666667,
+      "max_sync_error_s": 0.0,
+      "wall_time_s": 13.067568115999165,
+      "max_inactive_joint_drift": 4.841902409680188e-06,
+      "trajectory_csv": null,
+      "trajectory_samples": 0
+    },
+    {
+      "path": "datasets/autopicker/ik_coverage_smoke_v1/episode_0002",
+      "success": true,
+      "reason": "collected",
+      "states": 6647,
+      "frames": 0,
+      "duration_s": 13.845833333333333,
+      "max_sync_error_s": 0.0,
+      "wall_time_s": 12.780448677000095,
+      "max_inactive_joint_drift": 4.8419351514894515e-06,
+      "trajectory_csv": null,
+      "trajectory_samples": 0
+    }
+  ]
+}
