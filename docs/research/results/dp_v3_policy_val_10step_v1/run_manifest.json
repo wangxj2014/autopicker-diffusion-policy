@@ -1,6 +1,6 @@
 {
   "schema": "autopicker-run-manifest-v1",
-  "created_at_utc": "2026-11-25T08:05:04.183272+00:00",
+  "created_at_utc": "2026-11-25T08:12:57.215363+00:00",
   "run_type": "isaac_rollout",
   "host": {
     "hostname": "oem-Legion-R9000P-ARX8",
@@ -22,8 +22,8 @@
     "architecture": "x86_64",
     "cpu_count_logical": 32,
     "ram_total_mb": 31767.55,
-    "ram_available_mb": 19650.21,
-    "ram_used_mb": 12117.34
+    "ram_available_mb": 19581.41,
+    "ram_used_mb": 12186.14
   },
   "python": {
     "executable": "/home/oem/Downloads/IsaacSim/_build/linux-x86_64/release/kit/python/bin/python3",
@@ -44,7 +44,7 @@
     ]
   },
   "git": {
-    "revision": "1a8f79747370e80a2d4c32444959d634657810b4",
+    "revision": "6f7a31740099619bbd90e08cb8cf9aec80e480eb",
     "branch": "research/dp4060-closed-loop-steps-v1",
     "dirty": false,
     "git_errors": []
@@ -60,7 +60,7 @@
     "max_episodes": null,
     "seed": 0,
     "seed_mode": "episode",
-    "inference_steps": 5,
+    "inference_steps": 10,
     "timeout": 35.0,
     "scene": "/home/oem/Documents/Codex/2026-11-19/new-chat/outputs/autopicker_apple_orchard.usd",
     "headless": true
