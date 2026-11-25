@@ -153,7 +153,9 @@ def main():
                 raise ValueError('Checkpoint data identity or action rate differs from rollout')
             summary.update(checkpoint_sha256=client.ready['checkpoint_sha256'],
                            training_split=trained['split'], training_seed=trained['seed'],
-                           training_scope=trained['scope'])
+                           training_scope=trained['scope'],
+                           inference_runtime=trained.get('versions'),
+                           observation_augmentation=trained.get('observation_augmentation'))
             if trained['split'] == 'all-pilot':
                 summary['scope'] += '; all-pilot overfit diagnostic; no held-out evaluation'
         sys.argv = sys.argv[:1]
@@ -161,7 +163,9 @@ def main():
         app = SimulationApp({'headless': options.headless, 'width': 640, 'height': 480})
         from autopicker_dp.environment import PickingEnvironment
         from autopicker_dp.run import run_episode
+        from isaacsim.core.version import get_version
         from pxr import UsdGeom
+        summary['isaac_version'] = list(get_version())
         env = PickingEnvironment(options.scene, config['arm'], config['speed_scale'])
         starts = np.r_[0, dataset.episode_ends[:-1]]
         for ordinal, index in enumerate(indices):
