@@ -137,9 +137,9 @@ def benchmark(options):
             policy.config["inference_steps"] = steps
             if device.type == "cuda":
                 torch.cuda.reset_peak_memory_stats(device)
-            for sample in windows:
+            for tensor_index, sample in enumerate(windows):
                 sample_index = sample["sequence_index"]
-                observation = tensors[windows.index(sample)]
+                observation = tensors[tensor_index]
                 for warmup_index in range(options.warmup):
                     policy.predict(observation, seed=options.seed + sample_index + warmup_index * 100000)
                 if device.type == "cuda":
