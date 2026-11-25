@@ -193,7 +193,16 @@ def main():
     parser.add_argument('--scene', type=Path, default=ROOT / 'outputs/autopicker_apple_orchard.usd')
     parser.add_argument('--arm', default='R_down', choices=('L_down', 'L_up', 'R_down', 'R_up'))
     parser.add_argument('--episodes', type=int, default=10)
-    parser.add_argument('--targets', type=int, default=5)
+    parser.add_argument('--targets', type=int, default=5,
+                        help='Maximum distinct reachable apples preselected per tree/approach-angle combination')
+    parser.add_argument('--trees', default='Tree_01,Tree_02,Tree_03',
+                        help='Comma-separated orchard trees to cover (Tree_01,Tree_02,Tree_03)')
+    parser.add_argument('--approach-angles', default='30,45,60',
+                        help='Comma-separated approach angles in degrees')
+    parser.add_argument('--approach-distance', type=float, default=0.12)
+    parser.add_argument('--initial-variation', type=float, default=0.5,
+                        help='Bounded random initial-joint variation in [0,1]; 0 disables it')
+    parser.add_argument('--seed', type=int, default=2026)
     parser.add_argument('--speed-scale', type=float, default=1.)
     parser.add_argument('--sample-dt', type=float, default=.1)
     parser.add_argument('--replay-dt', type=float, default=.1)
@@ -205,8 +214,22 @@ def main():
     options = parser.parse_args()
     if options.mode in ('replay', 'audit') and options.input is None:
         parser.error('--input is required for replay/audit')
-    if options.episodes < 1 or options.targets < 1 or options.targets > options.episodes:
-        parser.error('Require episodes >= targets >= 1')
+    if options.episodes < 1 or options.targets < 1:
+        parser.error('Require episodes and targets >= 1')
+    try:
+        tree_names = [name.strip() for name in options.trees.split(',') if name.strip()]
+        approach_angles = [float(value.strip()) for value in options.approach_angles.split(',') if value.strip()]
+    except ValueError as error:
+        parser.error(f'Invalid trees or approach angles: {error}')
+    if (not tree_names or len(set(tree_names)) != len(tree_names)
+            or any(name not in ('Tree_01', 'Tree_02', 'Tree_03') for name in tree_names)):
+        parser.error('--trees must contain unique Tree_01, Tree_02 and/or Tree_03 names')
+    if (not approach_angles or any(not np.isfinite(value) or not 0 < value < 90
+                                   for value in approach_angles)):
+        parser.error('--approach-angles must contain values strictly between 0 and 90')
+    if (not 0.01 <= options.approach_distance <= 0.3
+            or not 0 <= options.initial_variation <= 1 or not np.isfinite(options.initial_variation)):
+        parser.error('Invalid approach distance or initial variation')
     if not 0 < options.speed_scale <= 45 or any(not np.isfinite(value) or value <= 0 for value in
                                                (options.sample_dt, options.replay_dt, options.timeout)):
         parser.error('Require finite positive time intervals and speed-scale in (0, 45]')
@@ -247,16 +270,55 @@ def main():
             if any(source.metadata['scene_sha256'] != scene_hash for source in sources):
                 raise ValueError('Replay scene differs from recording')
         environment = PickingEnvironment(options.scene, options.arm, options.speed_scale)
-        targets = [source.metadata['target_path'] for source in sources] if sources else environment.targets(options.targets)
         if not options.no_rgbd:
             camera = SynchronizedCamera(environment)
         count = len(sources) if sources else options.episodes
+        coverage_plans = []
+        if not sources:
+            for tree_name in tree_names:
+                base_offset = environment.base_x_offset_for_tree(tree_name)
+                for angle in approach_angles:
+                    paths = environment.targets(options.targets, base_offset, tree_name, angle,
+                                                 options.approach_distance, allow_fewer=True)
+                    if paths:
+                        coverage_plans.append({'tree': tree_name, 'base_x_offset_m': base_offset,
+                                               'approach_angle_degrees': angle, 'targets': paths})
+                        print(f'COVERAGE_PLAN tree={tree_name} base_x_offset_m={base_offset:.3f} '
+                              f'angle={angle:g} reachable_targets={len(paths)}', flush=True)
+                    else:
+                        print(f'COVERAGE_PLAN_SKIP tree={tree_name} angle={angle:g} '
+                              'reason=no_reachable_targets', flush=True)
+            if not coverage_plans:
+                raise RuntimeError('No reachable tree/approach-angle combinations were found')
         for index in range(count):
             source = sources[index] if sources else None
-            environment.reset(targets[index % len(targets)],
-                              source.metadata['reset_joint_positions'] if source else None)
+            if source:
+                target_path = source.metadata['target_path']
+                base_offset = float(source.metadata.get('base_x_offset_m', 0.0))
+                angle = float(source.metadata.get('approach_angle_degrees', 30.0))
+                distance = float(source.metadata.get('approach_distance_m', 0.12))
+                initial = source.metadata['reset_joint_positions']
+                metadata_extra = {'tree_name': source.metadata.get('tree_name', 'legacy_replay'),
+                                  'base_x_offset_m': base_offset,
+                                  'approach_angle_degrees': angle,
+                                  'approach_distance_m': distance,
+                                  'initial_variation': 0.0}
+            else:
+                plan = coverage_plans[index % len(coverage_plans)]
+                target_path = plan['targets'][(index // len(coverage_plans)) % len(plan['targets'])]
+                base_offset = plan['base_x_offset_m']
+                angle = plan['approach_angle_degrees']
+                distance = options.approach_distance
+                initial = environment.varied_initial_positions(options.seed + index,
+                                                                options.initial_variation)
+                metadata_extra = {'tree_name': plan['tree'], 'base_x_offset_m': base_offset,
+                                  'approach_angle_degrees': angle, 'approach_distance_m': distance,
+                                  'initial_variation': options.initial_variation,
+                                  'collection_seed': options.seed + index}
+            environment.reset(target_path, initial, base_offset, angle, distance)
             result = run_episode(environment, options.output / f'episode_{index:04d}', camera,
                                  options.sample_dt, options.timeout, source, options.replay_dt,
+                                 metadata_extra=metadata_extra,
                                  post_collect_hold=options.post_collect_hold if source is None else 0.)
             results.append(result)
             if not result['success']:
