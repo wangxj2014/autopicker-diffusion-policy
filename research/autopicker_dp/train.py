@@ -139,7 +139,6 @@ def main():
         extra={'dataset_sha256': dataset_hash, 'upstream_revision': UPSTREAM_REVISION})
     run_manifest_sha256 = hashlib.sha256(
         (options.output / 'run_manifest.json').read_bytes()).hexdigest()
-    monitor = ResourceMonitor(options.output, interval_s=1.0).start()
     if options.device.startswith('cuda'):
         torch.cuda.reset_peak_memory_stats()
     qdot_noise_normalized_std = (options.qdot_noise_std_rad_s
@@ -170,6 +169,7 @@ def main():
                 'optimizer': 'AdamW', 'training_windows': len(sequences)}
     if augmentation is not None:
         metadata['recovery_augmentation'] = augmentation
+    monitor = ResourceMonitor(options.output, interval_s=1.0).start()
     started = time.monotonic()
     losses = []
     gradient_norms = []
