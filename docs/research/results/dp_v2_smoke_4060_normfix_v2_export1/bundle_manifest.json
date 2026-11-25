@@ -1,0 +1,27 @@
+{
+  "schema": "autopicker-diagnostic-bundle-v1",
+  "source_run_name": "dp_v2_smoke_4060_normfix_v2",
+  "files": [
+    {
+      "path": "run_manifest.json",
+      "size_bytes": 2541,
+      "sha256": "ece99a5c8ed29699bc41f799ae74e4a4e928bde6259c9d12d82c27c63fca69b7"
+    },
+    {
+      "path": "report.json",
+      "size_bytes": 97818,
+      "sha256": "f395f4e8bbdc4fb9a9e7fad35f410f996ceb5d5c6a9d389d953e59accd5a6aa1"
+    },
+    {
+      "path": "metrics.jsonl",
+      "size_bytes": 291,
+      "sha256": "85531c8bb9332e3b8e11aea005aed8b5c13dc3db9b68fa0de62c5eebbfeeff44"
+    },
+    {
+      "path": "system_metrics.csv",
+      "size_bytes": 800,
+      "sha256": "ec2b85b3a5ba442341ad09f3cf25c7ac0d1411974294d5a8a240ed7ea57a73a7"
+    }
+  ],
+  "skipped": []
+}
