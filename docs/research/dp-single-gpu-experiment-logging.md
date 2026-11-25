@@ -30,7 +30,7 @@
 
 system_metrics.csv 的 GPU 利用率和显存使用量是整张 GPU 的设备级指标；gpu_processes_json 每约 5 秒采集一次 NVIDIA 可见的计算进程 PID、名称和显存。进程树 CPU/RSS 覆盖当前运行进程及其子进程，因此 Isaac Sim 运行时会包括独立的 inference worker。显卡显示进程是否出现在进程列表中取决于驱动/NVIDIA-SMI 的可见性；设备级 GPU 利用率和总显存仍会保留。
 
-监控采用 Python 标准库和 nvidia-smi，不额外安装 psutil。采样间隔为 1 秒，不进入仿真物理步或 EtherCAT 实时控制回路。
+监控采用 Python 标准库和 nvidia-smi，不额外安装 psutil。采样间隔为 1 秒，不进入仿真物理步或 EtherCAT 实时控制回路。 停止监控时还会强制写入一条最终采样，因此不足 1 秒的 smoke test 也会至少包含启动和结束两条记录；这两条记录不能代替长时间运行时的峰值采样。
 
 ## 3. RTX 4060 训练建议
 
