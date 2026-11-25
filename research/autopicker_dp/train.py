@@ -130,9 +130,12 @@ def main():
     ema = deepcopy(policy).eval()
     optimizer = torch.optim.AdamW(policy.parameters(), lr=options.learning_rate, weight_decay=1e-6)
     options.output.mkdir(parents=True, exist_ok=False)
+    manifest_inputs = {'dataset_manifest': options.dataset / 'manifest.json'}
+    if options.recovery_dataset is not None:
+        manifest_inputs['recovery_manifest'] = options.recovery_dataset / 'manifest.json'
     run_manifest = write_run_manifest(
         options.output, ROOT, 'diffusion_training', configuration=vars(options),
-        input_paths={'dataset_manifest': options.dataset / 'manifest.json'},
+        input_paths=manifest_inputs,
         extra={'dataset_sha256': dataset_hash, 'upstream_revision': UPSTREAM_REVISION})
     run_manifest_sha256 = hashlib.sha256(
         (options.output / 'run_manifest.json').read_bytes()).hexdigest()
@@ -169,6 +172,7 @@ def main():
         metadata['recovery_augmentation'] = augmentation
     started = time.monotonic()
     losses = []
+    gradient_norms = []
     try:
         with (options.output / 'metrics.jsonl').open('w', encoding='utf-8') as stream:
             for step in range(1, options.steps + 1):
@@ -183,7 +187,10 @@ def main():
                     raise RuntimeError('Nonfinite training loss')
                 optimizer.zero_grad(set_to_none=True)
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(policy.parameters(), 1.)
+                gradient_norm = torch.nn.utils.clip_grad_norm_(policy.parameters(), 1.)
+                if not torch.isfinite(gradient_norm):
+                    raise RuntimeError('Nonfinite gradient norm')
+                gradient_norms.append(float(gradient_norm.detach()))
                 optimizer.step()
                 with torch.no_grad():
                     decay = min(.995, (1. + step) / (10. + step))
@@ -192,6 +199,13 @@ def main():
                 losses.append(float(loss.detach()))
                 if step % 100 == 0 or step == options.steps:
                     metrics = {'step': step, 'loss_mean_last100': float(np.mean(losses[-100:])),
+                               'gradient_norm_mean_last100': float(np.mean(gradient_norms[-100:])),
+                               'gradient_norm_max_last100': float(np.max(gradient_norms[-100:])),
+                               'learning_rate': float(optimizer.param_groups[0]['lr']),
+                               'cuda_memory_allocated_mb': (torch.cuda.memory_allocated() / 1048576
+                                                             if options.device.startswith('cuda') else 0.),
+                               'cuda_memory_reserved_mb': (torch.cuda.memory_reserved() / 1048576
+                                                            if options.device.startswith('cuda') else 0.),
                                'wall_time_s': time.monotonic() - started}
                     stream.write(json.dumps(metrics) + '\n')
                     stream.flush()
