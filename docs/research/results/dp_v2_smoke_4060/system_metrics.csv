@@ -1,0 +1,2 @@
+timestamp_utc,elapsed_s,system_cpu_percent,process_tree_cpu_percent,process_tree_rss_mb,process_tree_count,load_1m,ram_total_mb,ram_used_mb,ram_available_mb,gpu_index,gpu_util_percent,gpu_memory_util_percent,gpu_memory_used_mb,gpu_memory_total_mb,gpu_temperature_c,gpu_power_w,gpu_processes_json
+2026-11-25T07:06:36.602595+00:00,0.0,,,692.98,1,0.52,31767.55,13153.44,18614.11,0,0.0,22.0,1389.0,8188.0,40.0,3.86,"[{""pid"": ""63921"", ""process_name"": ""work/autopicker_train_env/bin/python"", ""used_gpu_memory_mb"": ""140""}]"

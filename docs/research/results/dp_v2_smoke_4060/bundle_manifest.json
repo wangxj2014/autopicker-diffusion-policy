@@ -1,0 +1,27 @@
+{
+  "schema": "autopicker-diagnostic-bundle-v1",
+  "source_run_name": "dp_v2_smoke_4060",
+  "files": [
+    {
+      "path": "run_manifest.json",
+      "size_bytes": 2530,
+      "sha256": "2a8838eb6a2415b3c4e46150f195f86cedefebd5a5692cfcab68db9721382da9"
+    },
+    {
+      "path": "report.json",
+      "size_bytes": 96235,
+      "sha256": "44e15697359006d2d3e4a573643ebfdb479da6b4fb7709a8414fa7d80dc617fd"
+    },
+    {
+      "path": "metrics.jsonl",
+      "size_bytes": 287,
+      "sha256": "d26bc250047fe882d23a39d2a82a224067c0b4360c5009b25d979b9c850c7218"
+    },
+    {
+      "path": "system_metrics.csv",
+      "size_bytes": 531,
+      "sha256": "411560574d63c6832a1086e28dab9a01db1c5e1e61960dcc068005246eaa5e9a"
+    }
+  ],
+  "skipped": []
+}
