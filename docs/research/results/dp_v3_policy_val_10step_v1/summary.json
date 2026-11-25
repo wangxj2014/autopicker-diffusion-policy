@@ -15,8 +15,10 @@
       "frames": 0,
       "duration_s": 35.0,
       "max_sync_error_s": 0.0,
-      "wall_time_s": 39.02269539700137,
+      "wall_time_s": 38.74767067499852,
       "max_inactive_joint_drift": 4.841902409680188e-06,
+      "trajectory_csv": "runs/autopicker/dp_v3_policy_val_10step_v1/episode_0000/trajectory.csv",
+      "trajectory_samples": 350,
       "source_episode_index": 0,
       "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036"
     },
@@ -28,8 +30,10 @@
       "frames": 0,
       "duration_s": 35.0,
       "max_sync_error_s": 0.0,
-      "wall_time_s": 39.24785776000135,
+      "wall_time_s": 39.12973700300063,
       "max_inactive_joint_drift": 4.841902409680188e-06,
+      "trajectory_csv": "runs/autopicker/dp_v3_policy_val_10step_v1/episode_0001/trajectory.csv",
+      "trajectory_samples": 350,
       "source_episode_index": 5,
       "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036"
     }
@@ -37,7 +41,7 @@
   "dataset_sha256": "f4f1f811c788675609651eb10d73d0da904e4a1da52dc807cf0a457982a2a375",
   "checkpoint_sha256": "8e163b2371c825c45d5b440a0329cf12edb7e20f960a47c88ff331f0709d7eb4",
   "run_manifest": "run_manifest.json",
-  "run_manifest_sha256": "2051dc7812e0a5636b20fb9f198feaa2090c93547bad31291378e9ced75f7a3d",
+  "run_manifest_sha256": "b3be8abf479e7a0c5e37fbbb8f8acb77319a74264ccf49b6f2067c8643932434",
   "resource_metrics": "system_metrics.csv",
   "scope": "oracle lowdim, fixed scene/reset, pilot only",
   "completed": false,
