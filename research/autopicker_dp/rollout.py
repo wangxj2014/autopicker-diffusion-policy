@@ -130,7 +130,6 @@ def main():
                'inference_python': str(options.inference_python) if options.inference_python else None})
     run_manifest_sha256 = hashlib.sha256(
         (options.output / 'run_manifest.json').read_bytes()).hexdigest()
-    monitor = ResourceMonitor(options.output, interval_s=1.0).start()
     summary = {'mode': options.mode, 'split': options.split, 'seed': options.seed, 'seed_mode': options.seed_mode,
                'requested': len(indices), 'attempted': 0, 'successes': 0, 'results': [],
                'dataset_sha256': dataset_hash, 'checkpoint_sha256': checkpoint_sha256,
@@ -144,6 +143,7 @@ def main():
         summary.update(hybrid_configuration=dict(hybrid_config),
                        scope='hybrid: diffusion coarse approach + oracle IK precision + event-gated classical return; fixed scene')
     client = app = env = None
+    monitor = ResourceMonitor(options.output, interval_s=1.0).start()
     try:
         if options.mode != 'converted-replay':
             client = PolicyClient(options.inference_python, options.checkpoint, options.upstream,
@@ -235,14 +235,16 @@ def main():
         print('AUTOPICKER_ROLLOUT_FAILED', flush=True)
         raise
     finally:
-        if client is not None:
-            client.close()
-        if env is not None:
-            env.close()
-        if app is not None:
-            app.close()
-        summary['resource_monitor'] = monitor.stop()
-        (options.output / 'summary.json').write_text(json.dumps(summary, indent=2))
+        try:
+            if client is not None:
+                client.close()
+            if env is not None:
+                env.close()
+            if app is not None:
+                app.close()
+        finally:
+            summary['resource_monitor'] = monitor.stop()
+            (options.output / 'summary.json').write_text(json.dumps(summary, indent=2))
 
 
 if __name__ == '__main__':
