@@ -372,7 +372,17 @@ class ResourceMonitor:
         self.stop_event.set()
         self.thread.join(timeout=max(10.0, self.interval_s * 3))
         with self._lock:
-            if not self.thread.is_alive():
+            if self.thread.is_alive():
+                self._record_error("shutdown", "resource monitor thread did not stop before timeout")
+            else:
+                # Short smoke tests can finish before the first periodic interval.
+                # Always take one final sample so the CSV contains both the start
+                # and end of a run, even when training lasts less than one second.
+                try:
+                    self._sample()
+                except Exception as error:
+                    self._record_error("final_sample", error)
+                self.stream.flush()
                 self.stream.close()
         numeric = {}
         for field in ("system_cpu_percent", "process_tree_cpu_percent", "process_tree_rss_mb",
