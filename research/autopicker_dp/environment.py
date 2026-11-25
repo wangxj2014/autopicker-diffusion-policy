@@ -125,6 +125,7 @@ class PickingEnvironment:
         self.base_x_offset = float(base_x_offset)
 
     def _reset_controller(self, base_x_offset=0.0):
+        from autopicker_apple_pick import JointChain, ARM_PREFIXES
         for marker in self.demo.markers:
             marker.entry = None
         self.demo.pool.reset()
