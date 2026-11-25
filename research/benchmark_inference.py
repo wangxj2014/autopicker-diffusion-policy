@@ -173,6 +173,14 @@ def benchmark(options):
                 "steps": steps, "latency_ms": percentile_summary(timings[steps]),
                 "samples": len(windows),
             }), flush=True)
+    except BaseException as error:
+        import traceback
+        (options.output / "failure.json").write_text(json.dumps({
+            "error_type": type(error).__name__,
+            "error": str(error),
+            "traceback": traceback.format_exc(),
+        }, indent=2), encoding="utf-8")
+        raise
     finally:
         resource_summary = resource_monitor.stop()
 
