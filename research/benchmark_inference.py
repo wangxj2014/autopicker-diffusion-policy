@@ -114,7 +114,7 @@ def benchmark(options):
             "device": str(device), "steps": steps_list,
             "reference_steps": options.reference_steps,
             "warmup": options.warmup, "repeats": options.repeats,
-            "max_samples": options.max_samples,
+            "max_samples": options.max_samples, "seed": options.seed,
         },
         input_paths={"dataset_manifest": options.dataset / "manifest.json",
                      "checkpoint": options.checkpoint},
@@ -223,7 +223,7 @@ def benchmark(options):
         "dataset_sha256": dataset_sha, "checkpoint_sha256": checkpoint_sha,
         "checkpoint_training_git_revision": metadata.get("git_revision"),
         "checkpoint_training_git_dirty": metadata.get("git_dirty"),
-        "split": options.split, "selected_episode_indices": indices,
+        "split": options.split, "seed": options.seed, "selected_episode_indices": indices,
         "sample_count": len(windows), "sample_sequence_indices": [w["sequence_index"] for w in windows],
         "device": str(device), "gpu_name": torch.cuda.get_device_name(device) if device.type == "cuda" else None,
         "steps": steps_list, "reference_steps": reference,
@@ -253,7 +253,7 @@ def benchmark(options):
         json.dumps(report, indent=2, allow_nan=False), encoding="utf-8")
     print("AUTOPICKER_INFERENCE_BENCHMARK_PASS " + json.dumps({
         "latency_ms": report["latency_ms"],
-        "action_deviation_vs_reference": report["action_deviation_vs_reference"],
+        "action_deviation_vs_reference_physical_units": report["action_deviation_vs_reference_physical_units"],
     }), flush=True)
     return report
 
