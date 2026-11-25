@@ -1,0 +1,81 @@
+{
+  "mode": "policy",
+  "split": "val",
+  "seed": 0,
+  "seed_mode": "episode",
+  "requested": 2,
+  "attempted": 2,
+  "successes": 0,
+  "results": [
+    {
+      "path": "runs/autopicker/dp_v3_policy_val_10step_v1/episode_0000",
+      "success": false,
+      "reason": "Episode timed out before collect",
+      "states": 16801,
+      "frames": 0,
+      "duration_s": 35.0,
+      "max_sync_error_s": 0.0,
+      "wall_time_s": 36.98226784399958,
+      "max_inactive_joint_drift": 4.841902409680188e-06,
+      "source_episode_index": 0,
+      "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036"
+    },
+    {
+      "path": "runs/autopicker/dp_v3_policy_val_10step_v1/episode_0001",
+      "success": false,
+      "reason": "Episode timed out before collect",
+      "states": 16801,
+      "frames": 0,
+      "duration_s": 35.0,
+      "max_sync_error_s": 0.0,
+      "wall_time_s": 37.20312669199848,
+      "max_inactive_joint_drift": 4.841902409680188e-06,
+      "source_episode_index": 5,
+      "target_path": "/World/Orchard/Right/Tree_02/Geometry/Fruit/Apple_036"
+    }
+  ],
+  "dataset_sha256": "f4f1f811c788675609651eb10d73d0da904e4a1da52dc807cf0a457982a2a375",
+  "checkpoint_sha256": "8e163b2371c825c45d5b440a0329cf12edb7e20f960a47c88ff331f0709d7eb4",
+  "run_manifest": "run_manifest.json",
+  "run_manifest_sha256": "0edf7c6b3c9c8c108fa9a2efc696cf764f1fb3a1bf8e239a8bfdd6ad6440088f",
+  "resource_metrics": "system_metrics.csv",
+  "scope": "oracle lowdim, fixed scene/reset, pilot only",
+  "completed": false,
+  "training_split": "train",
+  "training_seed": 0,
+  "training_scope": "target-grouped train-only fitting; pilot-sized split",
+  "inference_steps": 5,
+  "inference_runtime": {
+    "numpy": "2.2.6",
+    "torch": "2.7.0",
+    "diffusers": "0.32.2",
+    "zarr": "2.18.3",
+    "numcodecs": "0.13.1",
+    "einops": "0.8.1",
+    "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+    "cuda": "12.6"
+  },
+  "observation_augmentation": {
+    "kind": "train_only_independent_gaussian_qdot_noise",
+    "enabled": false,
+    "qdot_noise_std_rad_s": 0.0,
+    "normalized_std": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "channels": "obs[..., 4:8] only; q, goal, receiver and attached unchanged",
+    "evaluation_augmentation": false
+  },
+  "isaac_version": [
+    "5.1.0",
+    "rc.19",
+    "5",
+    "1",
+    "0",
+    "rc",
+    "19",
+    "main.0.aa503a9b.local"
+  ]
+}
