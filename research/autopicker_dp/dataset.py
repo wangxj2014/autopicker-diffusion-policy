@@ -451,7 +451,7 @@ def load_dataset(path):
     loaded = LoadedDataset(arrays, ends, manifest, normalizer)
     expected = Normalizer.fit(arrays, ends, loaded.episode_indices('train'))
     if normalizer.to_dict() != expected.to_dict():
-        raise ValueError('Stored normalizer does not match train-only statistics')
+        raise ValueError('Stored normalizer does not match the current train-only normalization algorithm; rebuild the dataset from its raw episode source into a new output directory')
     return loaded
 
 
