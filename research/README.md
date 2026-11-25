@@ -234,3 +234,16 @@ runner 不覆盖部分完成记录，只复用源码/来源相同的已完成组
 这些是固定场景、单臂、真值输入和视觉吸附条件下的工程验证。即使拟合成功，也仍需要更多独立目标/场景、扰动示范、多个训练种子、基线及视觉感知实验，才能支持论文结论。
 
 数据集、日志、模型和训练输出被 Git 忽略，GitHub 只保存代码、说明与小型验收报告。复制数据时应保留 `episode.json` 及全部 NPZ 文件。
+
+## RTX 4060 单机实验日志
+
+当 Isaac Sim 和训练/推理位于同一台 Ubuntu 电脑时，训练和闭环评估应先串行运行，避免共享显存和 GPU 计算资源造成干扰。当前研究分支的训练入口和 rollout 入口均自动写入 run_manifest.json 与 system_metrics.csv；前者保存机器/GPU/软件/代码/输入哈希，后者每秒采样系统 CPU/RAM、进程树资源和 NVIDIA GPU 利用率/显存/温度/功耗。训练还会记录梯度范数、学习率和 CUDA allocated/reserved；闭环回合文件保留观测、动作、事件和推理延迟。
+
+RTX 4060 单机采集方式、日志字段解释和推荐 batch size 见[实验日志说明](../docs/research/dp-single-gpu-experiment-logging.md)。运行完成后，可使用以下命令把小型诊断包导出到被 Git 跟踪的目录，再提交 GitHub；不会复制 checkpoint、原始数据集、RGB-D 帧或轨迹 NPZ：
+
+```bash
+work/autopicker_train_env/bin/python research/export_run_report.py \
+  --run runs/autopicker/你的实验目录 \
+  --destination docs/research/results/你的实验目录
+```
+
