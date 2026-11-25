@@ -12,7 +12,8 @@ from autopicker_dp.telemetry import ResourceMonitor, _process_tree_snapshot, wri
 
 
 class TelemetryTests(unittest.TestCase):
-    def test_manifest_records_host_git_configuration_and_input_hash(self):
+    @mock.patch('autopicker_dp.telemetry._gpu_static', return_value={'available': False, 'devices': []})
+    def test_manifest_records_host_git_configuration_and_input_hash(self, _gpu_static):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             source = root / "input.json"
