@@ -7,10 +7,10 @@ Isaac Sim plus the isolated inference worker).
 import csv
 from datetime import datetime, timezone
 import json
+import math
 import os
 from pathlib import Path
 import platform
-import shutil
 import subprocess
 import sys
 import threading
@@ -117,7 +117,7 @@ def _memory_snapshot():
 def _cpu_counters():
     try:
         fields = Path("/proc/stat").read_text().splitlines()[0].split()[1:]
-        values = [int(value) for value in fields]
+        values = [int(value) for value in fields[:8]]
         idle = values[3] + (values[4] if len(values) > 4 else 0)
         return sum(values), idle
     except (OSError, ValueError, IndexError):
@@ -173,7 +173,8 @@ def _gpu_dynamic():
             continue
         def number(value):
             try:
-                return float(value) if value not in ("", "N/A", "[Not Supported]") else None
+                parsed = float(value) if value not in ("", "N/A", "[Not Supported]") else None
+                return parsed if parsed is not None and math.isfinite(parsed) else None
             except ValueError:
                 return None
         devices.append({
@@ -369,7 +370,7 @@ class ResourceMonitor:
         if self.thread is None:
             return {"sample_count": 0, "errors": []}
         self.stop_event.set()
-        self.thread.join(timeout=max(5.0, self.interval_s * 3))
+        self.thread.join(timeout=max(10.0, self.interval_s * 3))
         with self._lock:
             if not self.thread.is_alive():
                 self.stream.close()
