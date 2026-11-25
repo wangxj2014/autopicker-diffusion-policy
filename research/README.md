@@ -108,7 +108,7 @@ checkpoint 保存模型、EMA、优化器、配置、scheduler、归一化、随
 /path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode policy --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m1_train_v2/checkpoint.pt --inference-python work/autopicker_train_env/bin/python --upstream work/diffusion_policy_upstream --output runs/autopicker/m1_policy_val_v2 --split val --seed 0 --timeout 35 --headless
 ```
 
-`--split` 选择初始目标/状态；`--max-episodes` 可限制评估数量。推理在独立 Python 进程中运行，以隔离 Isaac 的 Python 环境。仿真等待推理时不推进时间；每次消息检查回合编号、时间和请求编号。每回合保存完整物理状态、推理观测/动作/延迟和真实 capture/collect 事件；策略动作不调用专家 IK。重置时仍复用原模型初始化。
+`--split` 选择初始目标/状态；`--max-episodes` 可限制评估数量。推理在独立 Python 进程中运行，以隔离 Isaac 的 Python 环境。仿真等待推理时不推进时间；每次消息检查回合编号、时间和请求编号。每回合保存完整物理状态、推理观测/动作/延迟和真实 capture/collect 事件；`--mode policy` 的策略动作不调用专家 IK。重置时仍复用原模型初始化。
 
 必须同时检查 `AUTOPICKER_ROLLOUT_COMPLETE` 和 `summary.json` 的 `completed/requested/attempted/successes`。COMPLETE 表示评估跑完，**不代表全部成功**；超时、非法动作或数据审计失败都保留在分母中。成功仍需满足 3 mm/1° 抓取阈值并到达接果装置，没有放宽阈值。
 
@@ -201,6 +201,20 @@ work/autopicker_train_env/bin/python research/tests/validate_m5.py --output work
 ```
 
 所有 GPU 命令串行执行。3000 步模型未完成采摘，因此额外执行一次预定的 30000 步实验：训练从相同 seed 重新开始，训练输出改为 `m5_train_sample_long_v1`、步数改为 `30000`；离线评估及诊断使用该 checkpoint，闭环输出分别为 `m5_sample_long_train_v1`、`m5_sample_long_val_v1`。其余参数完全相同；审计加 `--include-longer`。没有启用 CUDA 严格确定性，不保证两次训练的前 3000 步逐位一致。这组增加了训练预算，单独报告，不能算作同预算目标消融。审计检查 checkpoint、目标、训练预算、数据来源、探针协议、两次 sample 训练的源码一致性和全部尝试，`AUDIT_PASS` 本身不表示成功率提升。完整结果见 [M5 实验报告](../docs/research/2026-11-23-m5-validation.md)。
+
+## M6：精抓接管与抓取事件门控
+
+新增 `--mode hybrid`：扩散模型只负责粗接近，实测末端进入 30 mm 后停止网络调用，锁存真值 IK 抓取目标及 30° 姿态；只有实际 capture 当帧才允许回撤，hor 取当前实测值，最终由实际 collect 结束。精抓轨迹结束但未抓取时继续保持目标，不重复“接近—退开”。这是混合控制，须与 `--mode policy` 的纯策略结果分开统计。
+
+使用现有 M5 sample 30000 checkpoint，不需要重训。本地已有数据和模型时，从仓库根目录运行以下命令；两个仿真应顺序执行，输出目录必须尚不存在。去掉 `--headless` 可以显示仿真界面。
+
+```bash
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode hybrid --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m5_train_sample_long_v1/checkpoint.pt --inference-python work/autopicker_train_env/bin/python --upstream work/diffusion_policy_upstream --split train --max-episodes 3 --seed 0 --timeout 35 --output runs/autopicker/m6_hybrid_train_v1 --headless
+/path/to/isaac-sim/python.sh research/autopicker_dp/rollout.py --mode hybrid --dataset datasets/autopicker/lowdim_v2 --checkpoint runs/autopicker/m5_train_sample_long_v1/checkpoint.pt --inference-python work/autopicker_train_env/bin/python --upstream work/diffusion_policy_upstream --split val --max-episodes 2 --seed 0 --timeout 35 --output runs/autopicker/m6_hybrid_val_v1 --headless
+work/autopicker_train_env/bin/python research/tests/validate_m6.py --output work/m6-recheck.json
+```
+
+M6 已见目标抓取 3/3、放果 2/3；第三次抓取较晚、回撤超时。留出目标未进入接管区，仍为 0/2。抓取门槛保持 3 mm/1°、收果 25 mm、超时 35 s。早停推理改变了后续回合 request_id，不能将本轮视作逐请求相同随机数的消融。事件日志包含每段传统轨迹的起点、目标、时长；审计重建接管后的所有施加命令并核对 capture 与回撤同帧。完整结果与诊断限制见 [M6 报告](../docs/research/2026-11-23-m6-validation.md)。
 
 ## 范围与下一步
 

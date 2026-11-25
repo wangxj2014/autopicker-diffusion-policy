@@ -80,7 +80,8 @@ class LivePolicy:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--mode', choices=('converted-replay', 'policy'), required=True)
+    parser.add_argument('--mode', choices=('converted-replay', 'policy', 'hybrid'), required=True,
+                        help='hybrid uses diffusion only for coarse approach, then oracle IK and event-gated return')
     parser.add_argument('--dataset', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--checkpoint', type=Path)
@@ -96,7 +97,7 @@ def main():
     if (not np.isfinite(options.timeout) or options.timeout <= 0
             or options.max_episodes is not None and options.max_episodes < 1):
         parser.error('Require positive finite timeout and positive episode count')
-    if options.mode == 'policy' and any(value is None for value in
+    if options.mode in ('policy', 'hybrid') and any(value is None for value in
                                        (options.checkpoint, options.inference_python, options.upstream)):
         parser.error('Policy needs --checkpoint, --inference-python, --upstream')
     dataset, dataset_hash = verified_sources(options.dataset)
@@ -114,9 +115,13 @@ def main():
                'requested': len(indices), 'attempted': 0, 'successes': 0, 'results': [],
                'dataset_sha256': dataset_hash, 'checkpoint_sha256': None,
                'scope': 'oracle lowdim, fixed scene/reset, pilot only', 'completed': False}
+    if options.mode == 'hybrid':
+        from autopicker_dp.hybrid import HYBRID_CONFIG, HybridPolicy
+        summary.update(hybrid_configuration=dict(HYBRID_CONFIG),
+                       scope='hybrid: diffusion coarse approach + oracle IK precision + event-gated classical return; fixed scene')
     client = app = env = None
     try:
-        if options.mode == 'policy':
+        if options.mode in ('policy', 'hybrid'):
             client = PolicyClient(options.inference_python, options.checkpoint, options.upstream,
                                   options.seed, options.output / 'inference.log')
             trained = client.ready['metadata']
@@ -126,7 +131,7 @@ def main():
                            training_split=trained['split'], training_seed=trained['seed'],
                            training_scope=trained['scope'])
             if trained['split'] == 'all-pilot':
-                summary['scope'] = 'all-pilot overfit diagnostic; no held-out evaluation'
+                summary['scope'] += '; all-pilot overfit diagnostic; no held-out evaluation'
         sys.argv = sys.argv[:1]
         from isaacsim import SimulationApp
         app = SimulationApp({'headless': options.headless, 'width': 640, 'height': 480})
@@ -161,11 +166,15 @@ def main():
                 provider = ConvertedReplay(converted, env.executor.position)
             else:
                 provider = LivePolicy(client, env, dataset.manifest['dt'], _base_inverse(config))
+                if options.mode == 'hybrid':
+                    provider = HybridPolicy(provider, env)
             extra = {'mode': options.mode, 'dataset_sha256': dataset_hash,
                      'checkpoint_sha256': summary['checkpoint_sha256'], 'rollout_seed': options.seed,
                      'source_episode_index': index, 'source_split': source['split'],
                      'evaluation_scope': summary['scope'], 'policy_dt': dataset.manifest['dt'],
                      'observation_semantics': dataset.manifest['observation_semantics']}
+            if options.mode == 'hybrid':
+                extra['hybrid_configuration'] = dict(HYBRID_CONFIG)
             if recovery.get('kind') == 'policy_state_reset':
                 extra['dynamic_initial_state'] = state
             summary['attempted'] += 1
