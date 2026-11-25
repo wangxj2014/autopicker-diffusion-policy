@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / 'research'))
 from autopicker_dp.control import CommandTrajectory
 from autopicker_dp.dataset import prepare_dataset, _base_inverse, _observation, _sha256
 from autopicker_dp.inference import ActionLoop, PolicyClient
+from autopicker_dp.telemetry import ResourceMonitor, write_run_manifest
 
 
 def verified_sources(path):
@@ -118,9 +119,23 @@ def main():
     if not indices:
         raise ValueError('No episodes selected')
     options.output.mkdir(parents=True, exist_ok=False)
+    checkpoint_sha256 = hashlib.sha256(options.checkpoint.read_bytes()).hexdigest() if options.checkpoint else None
+    input_paths = {'dataset_manifest': options.dataset / 'manifest.json', 'scene': options.scene}
+    if options.checkpoint is not None:
+        input_paths['checkpoint'] = options.checkpoint
+    run_manifest = write_run_manifest(
+        options.output, ROOT, 'isaac_rollout', configuration=vars(options), input_paths=input_paths,
+        extra={'dataset_sha256': dataset_hash, 'checkpoint_sha256': checkpoint_sha256,
+               'selected_episode_indices': indices,
+               'inference_python': str(options.inference_python) if options.inference_python else None})
+    run_manifest_sha256 = hashlib.sha256(
+        (options.output / 'run_manifest.json').read_bytes()).hexdigest()
+    monitor = ResourceMonitor(options.output, interval_s=1.0).start()
     summary = {'mode': options.mode, 'split': options.split, 'seed': options.seed, 'seed_mode': options.seed_mode,
                'requested': len(indices), 'attempted': 0, 'successes': 0, 'results': [],
-               'dataset_sha256': dataset_hash, 'checkpoint_sha256': None,
+               'dataset_sha256': dataset_hash, 'checkpoint_sha256': checkpoint_sha256,
+               'run_manifest': 'run_manifest.json', 'run_manifest_sha256': run_manifest_sha256,
+               'resource_metrics': 'system_metrics.csv',
                'scope': 'oracle lowdim, fixed scene/reset, pilot only', 'completed': False}
     if options.mode in ('hybrid', 'hybrid-corridor'):
         from autopicker_dp.hybrid import HYBRID_CONFIG, CORRIDOR_CONFIG, HybridPolicy, CorridorHybridPolicy
@@ -216,13 +231,14 @@ def main():
         print('AUTOPICKER_ROLLOUT_FAILED', flush=True)
         raise
     finally:
-        (options.output / 'summary.json').write_text(json.dumps(summary, indent=2))
         if client is not None:
             client.close()
         if env is not None:
             env.close()
         if app is not None:
             app.close()
+        summary['resource_monitor'] = monitor.stop()
+        (options.output / 'summary.json').write_text(json.dumps(summary, indent=2))
 
 
 if __name__ == '__main__':
