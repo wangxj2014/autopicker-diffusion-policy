@@ -143,8 +143,21 @@ def main():
         torch.cuda.reset_peak_memory_stats()
     qdot_noise_normalized_std = (options.qdot_noise_std_rad_s
                                   * normalizer.fields['obs']['scale'][4:8]).astype(np.float32)
+    joint_names = dataset.manifest['source_configuration']['joint_names']
+    joint_units = dataset.manifest['source_configuration']['joint_units']
+    observation_features = (
+        [{'index': index, 'name': f'q.{name}', 'unit': unit}
+         for index, (name, unit) in enumerate(zip(joint_names, joint_units))]
+        + [{'index': 4 + index, 'name': f'qdot.{name}', 'unit': f'{unit}/s'}
+           for index, (name, unit) in enumerate(zip(joint_names, joint_units))]
+        + [{'index': 8 + index, 'name': f'goal_base_m.{axis}', 'unit': 'm'}
+           for index, axis in enumerate(('x', 'y', 'z'))]
+        + [{'index': 11 + index, 'name': f'receiver_base_m.{axis}', 'unit': 'm'}
+           for index, axis in enumerate(('x', 'y', 'z'))]
+        + [{'index': 14, 'name': 'attached', 'unit': 'bool'}])
     metadata = {'scope': 'all-pilot overfit diagnostic; no held-out evaluation' if options.split == 'all-pilot'
                 else 'target-grouped train-only fitting; pilot-sized split',
+                'observation_features': observation_features,
                 'split': options.split, 'seed': options.seed, 'steps': options.steps,
                 'batch_size': options.batch_size, 'learning_rate': options.learning_rate,
                 'normalizer': normalizer.to_dict(), 'action_normalization': options.action_normalization,
