@@ -16,6 +16,7 @@ import torch
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'research'))
 from autopicker_dp.policy import DiffusionPolicy, UPSTREAM_REVISION
+from autopicker_dp.telemetry import ResourceMonitor, write_run_manifest
 
 
 def add_velocity_observation_noise(observation, normalized_std):
@@ -129,6 +130,13 @@ def main():
     ema = deepcopy(policy).eval()
     optimizer = torch.optim.AdamW(policy.parameters(), lr=options.learning_rate, weight_decay=1e-6)
     options.output.mkdir(parents=True, exist_ok=False)
+    run_manifest = write_run_manifest(
+        options.output, ROOT, 'diffusion_training', configuration=vars(options),
+        input_paths={'dataset_manifest': options.dataset / 'manifest.json'},
+        extra={'dataset_sha256': dataset_hash, 'upstream_revision': UPSTREAM_REVISION})
+    run_manifest_sha256 = hashlib.sha256(
+        (options.output / 'run_manifest.json').read_bytes()).hexdigest()
+    monitor = ResourceMonitor(options.output, interval_s=1.0).start()
     if options.device.startswith('cuda'):
         torch.cuda.reset_peak_memory_stats()
     qdot_noise_normalized_std = (options.qdot_noise_std_rad_s
@@ -161,35 +169,42 @@ def main():
         metadata['recovery_augmentation'] = augmentation
     started = time.monotonic()
     losses = []
-    with (options.output / 'metrics.jsonl').open('w', encoding='utf-8') as stream:
-        for step in range(1, options.steps + 1):
-            selected = torch.randint(0, len(sequences), (options.batch_size,), device=options.device)
-            batch_observation = tensors['obs'][selected].float()
-            if options.qdot_noise_std_rad_s > 0:
-                batch_observation = add_velocity_observation_noise(
-                    batch_observation, qdot_noise_normalized_std)
-            loss = policy.loss(batch_observation, tensors['action'][selected].float(),
-                               tensors['valid_mask'][selected].bool())
-            if not torch.isfinite(loss):
-                raise RuntimeError('Nonfinite training loss')
-            optimizer.zero_grad(set_to_none=True)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(policy.parameters(), 1.)
-            optimizer.step()
-            with torch.no_grad():
-                decay = min(.995, (1. + step) / (10. + step))
-                for averaged, current in zip(ema.parameters(), policy.parameters()):
-                    averaged.lerp_(current, 1. - decay)
-            losses.append(float(loss.detach()))
-            if step % 100 == 0 or step == options.steps:
-                metrics = {'step': step, 'loss_mean_last100': float(np.mean(losses[-100:])),
-                           'wall_time_s': time.monotonic() - started}
-                stream.write(json.dumps(metrics) + '\n')
-                stream.flush()
-                print('TRAIN_PROGRESS ' + json.dumps(metrics), flush=True)
+    try:
+        with (options.output / 'metrics.jsonl').open('w', encoding='utf-8') as stream:
+            for step in range(1, options.steps + 1):
+                selected = torch.randint(0, len(sequences), (options.batch_size,), device=options.device)
+                batch_observation = tensors['obs'][selected].float()
+                if options.qdot_noise_std_rad_s > 0:
+                    batch_observation = add_velocity_observation_noise(
+                        batch_observation, qdot_noise_normalized_std)
+                loss = policy.loss(batch_observation, tensors['action'][selected].float(),
+                                   tensors['valid_mask'][selected].bool())
+                if not torch.isfinite(loss):
+                    raise RuntimeError('Nonfinite training loss')
+                optimizer.zero_grad(set_to_none=True)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(policy.parameters(), 1.)
+                optimizer.step()
+                with torch.no_grad():
+                    decay = min(.995, (1. + step) / (10. + step))
+                    for averaged, current in zip(ema.parameters(), policy.parameters()):
+                        averaged.lerp_(current, 1. - decay)
+                losses.append(float(loss.detach()))
+                if step % 100 == 0 or step == options.steps:
+                    metrics = {'step': step, 'loss_mean_last100': float(np.mean(losses[-100:])),
+                               'wall_time_s': time.monotonic() - started}
+                    stream.write(json.dumps(metrics) + '\n')
+                    stream.flush()
+                    print('TRAIN_PROGRESS ' + json.dumps(metrics), flush=True)
+
+    finally:
+        resource_summary = monitor.stop()
     metadata.update(wall_time_s=time.monotonic() - started, initial_loss_mean=float(np.mean(losses[:100])),
                     final_loss_mean=float(np.mean(losses[-100:])),
-                    peak_cuda_memory_bytes=torch.cuda.max_memory_allocated() if options.device.startswith('cuda') else 0)
+                    peak_cuda_memory_bytes=torch.cuda.max_memory_allocated() if options.device.startswith('cuda') else 0,
+                    peak_cuda_memory_reserved_bytes=torch.cuda.max_memory_reserved() if options.device.startswith('cuda') else 0,
+                    resource_monitor=resource_summary, run_manifest='run_manifest.json',
+                    run_manifest_sha256=run_manifest_sha256)
     checkpoint = options.output / 'checkpoint.pt'
     save_checkpoint(checkpoint, policy, ema, optimizer, metadata)
     reloaded, _ = load_policy(checkpoint, options.upstream, options.device)
