@@ -18,6 +18,27 @@ sys.path.insert(0, str(ROOT / 'research'))
 from autopicker_dp.policy import DiffusionPolicy, UPSTREAM_REVISION
 
 
+def add_velocity_observation_noise(observation, normalized_std):
+    """Add Gaussian noise only to qdot channels of normalized Bx2x15 observations.
+
+    normalized_std is a four-element standard deviation already converted
+    from physical rad/s using the training normalizer. This is observation
+    corruption regularization, not a substitute for expert recovery data.
+    """
+    if (not torch.is_tensor(observation) or observation.ndim != 3
+            or observation.shape[1:] != (2, 15)
+            or not torch.isfinite(observation).all()):
+        raise ValueError('Expected finite normalized Bx2x15 observations')
+    std = torch.as_tensor(normalized_std, dtype=observation.dtype, device=observation.device)
+    if std.shape != (4,) or not torch.isfinite(std).all() or torch.any(std < 0):
+        raise ValueError('Velocity noise standard deviation must be four finite nonnegative values')
+    if not torch.any(std):
+        return observation
+    result = observation.clone()
+    result[..., 4:8] += torch.randn_like(result[..., 4:8]) * std.view(1, 1, 4)
+    return result
+
+
 def save_checkpoint(path, policy, ema, optimizer, metadata):
     torch.save({'schema': 'autopicker-diffusion-v1', 'upstream_revision': UPSTREAM_REVISION,
                 'model_config': policy.config, 'model': policy.state_dict(), 'ema': ema.state_dict(),
@@ -87,9 +108,12 @@ def main():
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--learning-rate', type=float, default=1e-4)
+    parser.add_argument('--qdot-noise-std-rad-s', type=float, default=0.0,
+                        help='Train-only Gaussian qdot observation noise in rad/s; 0 disables it')
     options = parser.parse_args()
-    if options.steps < 1 or options.batch_size < 1 or not 0 < options.learning_rate < 1:
-        parser.error('Require positive training budget and learning rate below one')
+    if (options.steps < 1 or options.batch_size < 1 or not 0 < options.learning_rate < 1
+            or not np.isfinite(options.qdot_noise_std_rad_s) or options.qdot_noise_std_rad_s < 0):
+        parser.error('Require positive training budget, learning rate below one, and finite nonnegative qdot noise')
     dataset = load_dataset(options.dataset)
     dataset_hash = hashlib.sha256((options.dataset / 'manifest.json').read_bytes()).hexdigest()
     normalizer, sequences, augmentation = training_inputs(
@@ -107,6 +131,8 @@ def main():
     options.output.mkdir(parents=True, exist_ok=False)
     if options.device.startswith('cuda'):
         torch.cuda.reset_peak_memory_stats()
+    qdot_noise_normalized_std = (options.qdot_noise_std_rad_s
+                                  * normalizer.fields['obs']['scale'][4:8]).astype(np.float32)
     metadata = {'scope': 'all-pilot overfit diagnostic; no held-out evaluation' if options.split == 'all-pilot'
                 else 'target-grouped train-only fitting; pilot-sized split',
                 'split': options.split, 'seed': options.seed, 'steps': options.steps,
@@ -123,6 +149,13 @@ def main():
                                 ('numpy', 'torch', 'diffusers', 'zarr', 'numcodecs', 'einops')},
                              'python': sys.version, 'cuda': torch.version.cuda},
                 'scheduler': dict(policy.scheduler.config), 'ema_decay': .995,
+                'observation_augmentation': {
+                    'kind': 'train_only_independent_gaussian_qdot_noise',
+                    'enabled': bool(options.qdot_noise_std_rad_s > 0),
+                    'qdot_noise_std_rad_s': float(options.qdot_noise_std_rad_s),
+                    'normalized_std': qdot_noise_normalized_std.tolist(),
+                    'channels': 'obs[..., 4:8] only; q, goal, receiver and attached unchanged',
+                    'evaluation_augmentation': False},
                 'optimizer': 'AdamW', 'training_windows': len(sequences)}
     if augmentation is not None:
         metadata['recovery_augmentation'] = augmentation
@@ -131,7 +164,11 @@ def main():
     with (options.output / 'metrics.jsonl').open('w', encoding='utf-8') as stream:
         for step in range(1, options.steps + 1):
             selected = torch.randint(0, len(sequences), (options.batch_size,), device=options.device)
-            loss = policy.loss(tensors['obs'][selected].float(), tensors['action'][selected].float(),
+            batch_observation = tensors['obs'][selected].float()
+            if options.qdot_noise_std_rad_s > 0:
+                batch_observation = add_velocity_observation_noise(
+                    batch_observation, qdot_noise_normalized_std)
+            loss = policy.loss(batch_observation, tensors['action'][selected].float(),
                                tensors['valid_mask'][selected].bool())
             if not torch.isfinite(loss):
                 raise RuntimeError('Nonfinite training loss')
