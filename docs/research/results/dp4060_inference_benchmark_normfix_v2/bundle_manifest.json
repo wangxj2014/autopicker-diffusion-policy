@@ -1,0 +1,27 @@
+{
+  "schema": "autopicker-diagnostic-bundle-v1",
+  "source_run_name": "dp4060_inference_benchmark_normfix_v2",
+  "files": [
+    {
+      "path": "run_manifest.json",
+      "size_bytes": 3295,
+      "sha256": "2578735454d539ffc8401ba7030dbbbdd6fcf827e06df4856526e0e967ecaa8b"
+    },
+    {
+      "path": "report.json",
+      "size_bytes": 6618,
+      "sha256": "bdd979136ca6360ad1cfda805fcc3f24a57227bd05e5ea66dab92fae64503963"
+    },
+    {
+      "path": "metrics.jsonl",
+      "size_bytes": 44294,
+      "sha256": "9a4bae8bbe330bb91bfcb1517e9d37f9e83107ab27c78d5b11e537c6ed3af7c6"
+    },
+    {
+      "path": "system_metrics.csv",
+      "size_bytes": 8388,
+      "sha256": "2b75a0404aff04325918e39616f6f36133ddec0bc7ba77ceaee626cfa91f6a62"
+    }
+  ],
+  "skipped": []
+}

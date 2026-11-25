@@ -1,0 +1,259 @@
+{
+  "schema": "autopicker-inference-benchmark-v1",
+  "dataset_sha256": "f4f1f811c788675609651eb10d73d0da904e4a1da52dc807cf0a457982a2a375",
+  "checkpoint_sha256": "10593fc76156c888b9f193fb651ca3178b2965dbcb2cf0e9bd5384b8073b4c8c",
+  "checkpoint_training_git_revision": "eeca65ec41a91ee1be2407291817d99485618b93",
+  "checkpoint_training_git_dirty": true,
+  "split": "val",
+  "seed": 0,
+  "selected_episode_indices": [
+    0,
+    5
+  ],
+  "sample_count": 32,
+  "sample_sequence_indices": [
+    0,
+    9,
+    18,
+    27,
+    36,
+    46,
+    55,
+    64,
+    73,
+    82,
+    92,
+    101,
+    110,
+    119,
+    128,
+    138,
+    139,
+    148,
+    157,
+    166,
+    175,
+    185,
+    194,
+    203,
+    212,
+    221,
+    231,
+    240,
+    249,
+    258,
+    267,
+    277
+  ],
+  "device": "cuda",
+  "gpu_name": "NVIDIA GeForce RTX 4060 Laptop GPU",
+  "steps": [
+    5,
+    10,
+    20
+  ],
+  "reference_steps": 20,
+  "latency_ms": {
+    "5": {
+      "count": 128,
+      "mean": 14.23923356259138,
+      "std": 1.7942141044327358,
+      "min": 13.713049000216415,
+      "p50": 13.908965498558246,
+      "p95": 15.015900700745986,
+      "p99": 23.97357506768462,
+      "max": 29.42089000134729
+    },
+    "10": {
+      "count": 128,
+      "mean": 28.296233211193567,
+      "std": 1.9573720656903781,
+      "min": 27.287160999549087,
+      "p50": 27.730051499020192,
+      "p95": 29.250021900224965,
+      "p99": 37.717912179250604,
+      "max": 45.07766700044158
+    },
+    "20": {
+      "count": 128,
+      "mean": 57.24692013276922,
+      "std": 4.277858049843477,
+      "min": 54.606265999609604,
+      "p50": 55.50573099935718,
+      "p95": 67.3956171500322,
+      "p99": 75.83964561905306,
+      "max": 77.52031500058365
+    }
+  },
+  "speedup_vs_reference_p50": {
+    "5": 3.990644092481983,
+    "10": 2.001645435145276,
+    "20": 1.0
+  },
+  "action_deviation_vs_reference_physical_units": {
+    "5": {
+      "reference_steps": 20,
+      "joint_differences": {
+        "R_down_roll_joint": {
+          "unit": "rad",
+          "mean_absolute_difference": 0.2398633062839508,
+          "root_mean_square_difference": 0.32598310708999634,
+          "max_absolute_difference": 1.106701374053955
+        },
+        "R_down_hor_joint": {
+          "unit": "m",
+          "mean_absolute_difference": 0.165477454662323,
+          "root_mean_square_difference": 0.2206244170665741,
+          "max_absolute_difference": 0.6469860076904297
+        },
+        "R_down_ver_joint": {
+          "unit": "m",
+          "mean_absolute_difference": 0.04807266965508461,
+          "root_mean_square_difference": 0.06482331454753876,
+          "max_absolute_difference": 0.23800140619277954
+        },
+        "R_down_rot_joint": {
+          "unit": "rad",
+          "mean_absolute_difference": 0.3741898238658905,
+          "root_mean_square_difference": 0.47238022089004517,
+          "max_absolute_difference": 1.1957124471664429
+        }
+      }
+    },
+    "10": {
+      "reference_steps": 20,
+      "joint_differences": {
+        "R_down_roll_joint": {
+          "unit": "rad",
+          "mean_absolute_difference": 0.18517321348190308,
+          "root_mean_square_difference": 0.28733882308006287,
+          "max_absolute_difference": 1.0414202213287354
+        },
+        "R_down_hor_joint": {
+          "unit": "m",
+          "mean_absolute_difference": 0.11557047814130783,
+          "root_mean_square_difference": 0.17383024096488953,
+          "max_absolute_difference": 0.5806655287742615
+        },
+        "R_down_ver_joint": {
+          "unit": "m",
+          "mean_absolute_difference": 0.02909017913043499,
+          "root_mean_square_difference": 0.044602829962968826,
+          "max_absolute_difference": 0.19009646773338318
+        },
+        "R_down_rot_joint": {
+          "unit": "rad",
+          "mean_absolute_difference": 0.23781493306159973,
+          "root_mean_square_difference": 0.3569111227989197,
+          "max_absolute_difference": 0.8822744488716125
+        }
+      }
+    },
+    "20": {
+      "reference_steps": 20,
+      "joint_differences": {
+        "R_down_roll_joint": {
+          "unit": "rad",
+          "mean_absolute_difference": 0.0,
+          "root_mean_square_difference": 0.0,
+          "max_absolute_difference": 0.0
+        },
+        "R_down_hor_joint": {
+          "unit": "m",
+          "mean_absolute_difference": 0.0,
+          "root_mean_square_difference": 0.0,
+          "max_absolute_difference": 0.0
+        },
+        "R_down_ver_joint": {
+          "unit": "m",
+          "mean_absolute_difference": 0.0,
+          "root_mean_square_difference": 0.0,
+          "max_absolute_difference": 0.0
+        },
+        "R_down_rot_joint": {
+          "unit": "rad",
+          "mean_absolute_difference": 0.0,
+          "root_mean_square_difference": 0.0,
+          "max_absolute_difference": 0.0
+        }
+      }
+    }
+  },
+  "action_features": [
+    {
+      "index": 0,
+      "name": "R_down_roll_joint",
+      "unit": "rad"
+    },
+    {
+      "index": 1,
+      "name": "R_down_hor_joint",
+      "unit": "m"
+    },
+    {
+      "index": 2,
+      "name": "R_down_ver_joint",
+      "unit": "m"
+    },
+    {
+      "index": 3,
+      "name": "R_down_rot_joint",
+      "unit": "rad"
+    }
+  ],
+  "cuda_peak_allocated_mb": {
+    "5": 26.0654296875,
+    "10": 26.0654296875,
+    "20": 26.0654296875
+  },
+  "cuda_peak_reserved_mb": {
+    "5": 92.0,
+    "10": 92.0,
+    "20": 92.0
+  },
+  "resource_monitor": {
+    "sample_count": 30,
+    "interval_s": 1.0,
+    "metrics_csv": "system_metrics.csv",
+    "errors_file": null,
+    "error_count": 0,
+    "aggregates": {
+      "system_cpu_percent": {
+        "mean": 3.801,
+        "max": 5.361
+      },
+      "process_tree_cpu_percent": {
+        "mean": 3.164,
+        "max": 3.25
+      },
+      "process_tree_rss_mb": {
+        "mean": 1154.325,
+        "max": 1167.85
+      },
+      "ram_used_mb": {
+        "mean": 12957.308,
+        "max": 12999.56
+      },
+      "gpu_util_percent": {
+        "mean": 38.033,
+        "max": 46.0
+      },
+      "gpu_memory_used_mb": {
+        "mean": 1423.7,
+        "max": 1425.0
+      },
+      "gpu_temperature_c": {
+        "mean": 44.767,
+        "max": 46.0
+      },
+      "gpu_power_w": {
+        "mean": 21.495,
+        "max": 25.3
+      }
+    }
+  },
+  "run_manifest": "run_manifest.json",
+  "run_manifest_sha256": "2578735454d539ffc8401ba7030dbbbdd6fcf827e06df4856526e0e967ecaa8b",
+  "measurement_scope": "GPU/host policy forward-pass timing only; excludes worker IPC, Isaac Sim stepping, camera acquisition, and ROS 2 execution",
+  "training_scope": "target-grouped train-only fitting; pilot-sized split"
+}
