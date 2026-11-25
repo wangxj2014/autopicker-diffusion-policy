@@ -52,6 +52,18 @@ class TelemetryTests(unittest.TestCase):
             self.assertGreaterEqual(summary["sample_count"], 1)
             self.assertEqual(summary["metrics_csv"], "system_metrics.csv")
 
+    @mock.patch("autopicker_dp.telemetry._gpu_dynamic", return_value=([], None))
+    @mock.patch("autopicker_dp.telemetry._gpu_processes", return_value=([], None))
+    def test_stop_takes_final_sample_for_subsecond_run(self, _gpu_processes, _gpu_dynamic):
+        with tempfile.TemporaryDirectory() as folder:
+            monitor = ResourceMonitor(folder, interval_s=10.0).start()
+            time.sleep(0.05)
+            summary = monitor.stop()
+            rows = (Path(folder) / "system_metrics.csv").read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(rows), 3)  # header + immediate sample + final sample
+            self.assertGreaterEqual(summary["sample_count"], 2)
+            self.assertEqual(summary["sample_count"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()
