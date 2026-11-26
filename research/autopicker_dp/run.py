@@ -197,11 +197,13 @@ def main():
                         help='Maximum distinct reachable apples preselected per tree/approach-angle combination')
     parser.add_argument('--trees', default='Tree_01,Tree_02,Tree_03',
                         help='Comma-separated orchard trees to cover (Tree_01,Tree_02,Tree_03)')
-    parser.add_argument('--approach-angles', default='30,45,60',
+    parser.add_argument('--approach-angles', default='15,30,45',
                         help='Comma-separated approach angles in degrees')
     parser.add_argument('--approach-distance', type=float, default=0.12)
     parser.add_argument('--initial-variation', type=float, default=0.5,
                         help='Bounded random initial-joint variation in [0,1]; 0 disables it')
+    parser.add_argument('--require-full-coverage', action='store_true',
+                        help='Fail before collection unless every tree/angle pair has exactly --targets reachable apples')
     parser.add_argument('--seed', type=int, default=2026)
     parser.add_argument('--speed-scale', type=float, default=1.)
     parser.add_argument('--sample-dt', type=float, default=.1)
@@ -280,6 +282,9 @@ def main():
                 for angle in approach_angles:
                     paths = environment.targets(options.targets, base_offset, tree_name, angle,
                                                  options.approach_distance, allow_fewer=True)
+                    if options.require_full_coverage and len(paths) != options.targets:
+                        raise RuntimeError(f'Coverage incomplete for {tree_name} at {angle:g} degrees: '
+                                           f'{len(paths)}/{options.targets} reachable targets')
                     if paths:
                         coverage_plans.append({'tree': tree_name, 'base_x_offset_m': base_offset,
                                                'approach_angle_degrees': angle, 'targets': paths})
@@ -321,8 +326,8 @@ def main():
                                  metadata_extra=metadata_extra,
                                  post_collect_hold=options.post_collect_hold if source is None else 0.)
             results.append(result)
-            if not result['success']:
-                break
+            # Keep collecting after a failed episode so the requested coverage matrix is still attempted.
+            # Failed episodes are persisted with their reason and remain in the summary denominator.
         summary = {'mode': options.mode, 'requested': count, 'attempted': len(results),
                    'successes': sum(result['success'] for result in results), 'results': results}
         (options.output / 'summary.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
