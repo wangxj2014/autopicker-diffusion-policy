@@ -76,7 +76,7 @@ def run_episode(environment, directory, camera, sample_dt, timeout_s, source=Non
         metadata.update(metadata_extra)
     episode = Episode(metadata)
     env.episode = episode
-    planner = None if source is not None or action_provider is not None else ExpertPlanner(env)
+    planner = None
     trajectory = None
     if source:
         arrays = source.arrays()
@@ -90,6 +90,10 @@ def run_episode(environment, directory, camera, sample_dt, timeout_s, source=Non
     next_progress = started + 15.
     failure = None
     try:
+        # Planner construction can fail for a geometrically unreachable pose; keep it
+        # inside the episode failure boundary so the attempt is recorded as failure.json.
+        if source is None and action_provider is None:
+            planner = ExpertPlanner(env)
         while env.time < timeout_s:
             env.update_task()
             if camera is not None and env.steps % sample_steps == 0:
