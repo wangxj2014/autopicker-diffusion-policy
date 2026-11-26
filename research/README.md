@@ -235,6 +235,43 @@ runner 不覆盖部分完成记录，只复用源码/来源相同的已完成组
 
 原始数据集、完整运行目录、模型和大体积轨迹/图像文件被 Git 忽略；代码、文档和通过 export_run_report.py 整理的小型诊断报告可提交 GitHub。原始 episode 数据归档时应保留 episode.json 及其对应的全部 NPZ 文件。
 
+
+## M8：三树 × 三角度 × 五初态覆盖采集（45 回合）
+
+本实验在 `R_down` 单臂上固定采集矩阵：`Tree_01/02/03` × `15°/30°/45°`，每个树/角度组合采 5 回合，共 45 回合。每回合使用 `seed + episode_index` 生成可复现的活动臂初始关节扰动（`initial-variation=0.5`）；每个组合预先选择 5 个不同可达苹果。`--require-full-coverage` 会在任何 episode 开始前检查九个组合是否都各有 5 个可达目标；若不满足则停止，不会悄悄缩减矩阵。失败回合会保留 `failure.json` 并继续后续回合。默认启用同步 RGB-D，不能添加 `--no-rgbd`。
+
+先从仓库根目录同步实验分支，并确认工作区干净：
+
+```bash
+git fetch origin
+git switch research/dp4060-orchard-coverage-45-v1
+git pull --ff-only
+```
+
+在 Isaac Sim 5.1 自带 Python 下运行（去掉 `--headless` 可显示 Isaac Sim 窗口；建议先用 GUI 做首轮观察）：
+
+```bash
+/path/to/isaac-sim/python.sh research/autopicker_dp/run.py collect \
+  --output datasets/autopicker/orchard_coverage_45_v1 \
+  --episodes 45 --targets 5 \
+  --trees Tree_01,Tree_02,Tree_03 \
+  --approach-angles 15,30,45 \
+  --initial-variation 0.5 --seed 20261126 \
+  --approach-distance 0.12 --speed-scale 3 --timeout 35 \
+  --require-full-coverage
+```
+
+输出目录 `datasets/autopicker/orchard_coverage_45_v1/`，每回合目录含 `episode.json`、`states.npz` 和默认开启时的 `rgbd.npz`；根目录含 `summary.json`。输出目录必须不存在。看到 `AUTOPICKER_COLLECT_PASS` 才表示 45 次采集全部达到成功验收；如果中途失败，查看 `summary.json` 与对应回合的 `failure.json`。由于失败回合也会保留，最终成功数不足 45 时程序会明确报错。
+
+采集结束后先审计，再提交代码分支和数据：
+
+```bash
+/path/to/isaac-sim/python.sh research/autopicker_dp/run.py audit --input datasets/autopicker/orchard_coverage_45_v1
+git status --short
+```
+
+原始数据文件可能较大且部分数据路径被 `.gitignore` 排除。先检查 `git status --short` 是否包含 `datasets/autopicker/orchard_coverage_45_v1`；若被忽略，不要直接 `git add -f` 上传大体积 RGB-D 文件。先确认 GitHub 仓库的单文件/总容量限制，再决定是否使用 Git LFS 或外部数据存储。至少保留本地完整原始数据及 `summary.json`，将代码、审计报告和数据清单提交到实验分支。
+
 ## RTX 4060 单机实验日志
 
 当 Isaac Sim 和训练/推理位于同一台 Ubuntu 电脑时，训练和闭环评估应先串行运行，避免共享显存和 GPU 计算资源造成干扰。当前研究分支的训练入口和 rollout 入口均自动写入 run_manifest.json 与 system_metrics.csv；前者保存机器/GPU/软件/代码/输入哈希，后者每秒采样系统 CPU/RAM、进程树资源和 NVIDIA GPU 利用率/显存/温度/功耗。训练还会记录梯度范数、学习率和 CUDA allocated/reserved；闭环回合文件保留观测、动作、事件和推理延迟。
